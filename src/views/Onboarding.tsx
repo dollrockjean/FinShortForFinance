@@ -2,38 +2,104 @@ import React, { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { useStore } from "../store";
 import { AppState, Cents, Envelope, EnvelopeKind, Goal, OnboardingStep, PayFrequency, PresetId } from "../types";
-import { ErrorText, Field, Logo, Modal, MoneyInput, Segmented, Toggle } from "../components/ui";
+import { Callout, Dropdown, ErrorText, Field, Logo, Modal, MoneyInput, Segmented, Toggle } from "../components/ui";
+import { KindBadge, GROUP_LABEL, KIND_META } from "../components/meta";
+import type { LucideIcon } from "lucide-react";
+import { BadgeCheck, Building2, ClipboardList, CreditCard, Inbox, KeyRound, Layers, Lock, Mail, Sparkles, Trash2, UserRound, Apple } from "lucide-react";
 import { KIND_LABELS } from "../engine/catalog";
 import { PRESETS, buildEnvelopes, makeEnvelope, monthlyEquivalent, recommendedPreset } from "../engine/presets";
 import { applyPlan, assign, planFill, transferIn } from "../engine/ledger";
 import { trailingAverage } from "../engine/clock";
 import { newCard } from "../engine/seed";
+import { envelopeOptions } from "../components/options";
 import { otpauthUri, randomSecret, totp, verifyTotp } from "../engine/totp";
 import { addDays, addMonths, fmt, fmtShort, sum, uid } from "../engine/util";
 
 const STEPS: OnboardingStep[] = ["signup", "verifyEmail", "twoFactor", "kyc", "questionnaire", "preset", "review", "fund", "assign", "card"];
 
+const STEP_ICONS: Record<string, LucideIcon> = {
+  signup: UserRound,
+  verifyEmail: Mail,
+  twoFactor: KeyRound,
+  kyc: BadgeCheck,
+  questionnaire: ClipboardList,
+  preset: Sparkles,
+  review: Layers,
+  fund: Building2,
+  assign: Inbox,
+  card: CreditCard,
+};
+
+const STEP_NAMES: Record<string, string> = {
+  signup: "Account",
+  verifyEmail: "Email",
+  twoFactor: "Two-factor",
+  kyc: "Identity",
+  questionnaire: "Your money",
+  preset: "Preset",
+  review: "Envelopes",
+  fund: "Funding",
+  assign: "Assign",
+  card: "Card",
+};
+
 function Shell({ step, children, wide }: { step: OnboardingStep; children: React.ReactNode; wide?: boolean }) {
   const { state, set } = useStore();
   const i = STEPS.indexOf(step);
+  const Icon = STEP_ICONS[step];
   return (
-    <div className={`onboard ${wide ? "wide" : ""}`}>
-      <div className="onboard-top">
-        <button className="link-btn" onClick={() => set({ step: "landing" })} aria-label="Back to start">
-          <Logo size={20} />
-        </button>
-        <span className="muted small">
-          Step {i + 1} of {STEPS.length}
-        </span>
+    <div className="onboard-wrap">
+      <div className={`onboard ${wide ? "wide" : ""}`}>
+        <div className="onboard-top">
+          <button className="link-btn" onClick={() => set({ step: "landing" })} aria-label="Back to start">
+            <Logo size={21} />
+          </button>
+          <span className="small muted">
+            {STEP_NAMES[step]} · {i + 1} of {STEPS.length}
+          </span>
+        </div>
+        <div className="steps" aria-hidden="true">
+          {STEPS.map((s, j) => (
+            <span key={s} className={j <= i ? "on" : ""} />
+          ))}
+        </div>
+        <div className="onboard-card">
+          {Icon && (
+            <span className="step-icon">
+              <Icon size={21} />
+            </span>
+          )}
+          {children}
+        </div>
+        {state.user && (
+          <p className="muted xs center top-gap" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6 }}>
+            <Lock size={12} /> Signed up as {state.user.email}. Everything stays in this browser.
+          </p>
+        )}
       </div>
-      <div className="steps" aria-hidden="true">
-        {STEPS.map((s, j) => (
-          <span key={s} className={j <= i ? "on" : ""} />
-        ))}
-      </div>
-      {children}
-      {state.user && <p className="muted small center top-gap">Signed up as {state.user.email}. Everything stays in this browser.</p>}
     </div>
+  );
+}
+
+export function BankLogo({ name }: { name: string }) {
+  const colors: Record<string, string> = {
+    Chase: "#117aca",
+    "Bank of America": "#c8102e",
+    "Wells Fargo": "#b31b1b",
+    "Capital One": "#004977",
+    Ally: "#650360",
+    "Navy Federal": "#0b2d71",
+    USAA: "#12284c",
+    Citi: "#056dae",
+  };
+  return (
+    <span className="bank-logo" style={{ background: colors[name] ?? "#52514e" }} aria-hidden="true">
+      {name
+        .split(" ")
+        .map((w) => w[0])
+        .join("")
+        .slice(0, 2)}
+    </span>
   );
 }
 
@@ -54,10 +120,10 @@ function SignUp() {
       <p className="muted">You'll verify your email and set up two-factor before any money moves.</p>
       <div className="stack">
         <button className="btn btn-outline btn-block" onClick={() => setOauth("google")}>
-          Continue with Google
+          <span style={{ fontWeight: 700, color: "#4285f4", width: 18, textAlign: "center" }}>G</span> Continue with Google
         </button>
         <button className="btn btn-outline btn-block" onClick={() => setOauth("apple")}>
-          Continue with Apple
+          <Apple size={17} /> Continue with Apple
         </button>
       </div>
       <div className="divider">or use email</div>
@@ -235,7 +301,7 @@ function SmsSetup({ onDone }: { onDone: (phone: string) => void }) {
   const digits = phone.replace(/\D/g, "");
   return (
     <>
-      <div className="note warn-note small">Text codes are the fallback. Anyone who ports your number to their SIM gets your codes too.</div>
+      <Callout status="warning">Text codes are the fallback. Anyone who ports your number to their SIM gets your codes too.</Callout>
       <Field label="Mobile number">
         <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" autoComplete="tel" placeholder="(512) 555-0142" />
       </Field>
@@ -316,9 +382,9 @@ function Kyc() {
         Fin issues you a card and holds your money, so federal know-your-customer rules apply. In production this goes through the card issuer's identity check
         (Stripe Identity or similar), not Fin's own servers.
       </p>
-      <div className="note warn-note small">
+      <Callout status="warning">
         This is a demo. Don't enter your real SSN. Use <strong>000-00-0000</strong> to pass, or <strong>111-11-1111</strong> to see a failed check. Only the last 4 digits are kept.
-      </div>
+      </Callout>
       <div className="grid-2">
         <Field label="Legal first name">
           <input value={first} onChange={(e) => setFirst(e.target.value)} autoComplete="given-name" />
@@ -343,20 +409,16 @@ function Kyc() {
           <input value={city} onChange={(e) => setCity(e.target.value)} autoComplete="address-level2" />
         </Field>
         <Field label="State">
-          <select value={st} onChange={(e) => setSt(e.target.value)}>
-            {US_STATES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
+          <Dropdown value={st} onChange={setSt} options={US_STATES.map((x) => ({ value: x, label: x }))} searchable />
         </Field>
         <Field label="ZIP">
           <input value={zip} onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" autoComplete="postal-code" />
         </Field>
       </div>
       {result === "failed" && (
-        <div className="note over-note">
+        <Callout status="critical">
           We couldn't verify you automatically. A real account would move to document review (photo ID plus a selfie). In this demo, fix the SSN and try again.
-        </div>
+        </Callout>
       )}
       {problems.length > 0 && (dob || ssn || zip) && <p className="muted small">Still needed: {problems.join(", ")}.</p>}
       <button className="btn btn-primary btn-block" disabled={problems.length > 0 || busy} onClick={submit}>
@@ -409,12 +471,16 @@ function Questionnaire() {
       {!irregular ? (
         <div className="grid-2 top-gap">
           <Field label="How often you're paid">
-            <select value={frequency} onChange={(e) => setFrequency(e.target.value as PayFrequency)}>
-              <option value="weekly">Weekly</option>
-              <option value="biweekly">Every two weeks</option>
-              <option value="semimonthly">Twice a month</option>
-              <option value="monthly">Monthly</option>
-            </select>
+            <Dropdown
+              value={frequency}
+              onChange={(v: PayFrequency) => setFrequency(v)}
+              options={[
+                { value: "weekly", label: "Weekly", description: "52 paychecks a year" },
+                { value: "biweekly", label: "Every two weeks", description: "26 a year, the most common" },
+                { value: "semimonthly", label: "Twice a month", description: "Like the 1st and 15th" },
+                { value: "monthly", label: "Monthly" },
+              ]}
+            />
           </Field>
           <Field label="Take-home per paycheck">
             <MoneyInput value={perCheck} onChange={setPerCheck} />
@@ -446,12 +512,16 @@ function Questionnaire() {
           <input type="number" min={1} max={12} value={household} onChange={(e) => setHousehold(Math.max(1, Math.min(12, Number(e.target.value) || 1)))} />
         </Field>
         <Field label="Main goal right now">
-          <select value={goal} onChange={(e) => setGoal(e.target.value as Goal)}>
-            <option value="discipline">Get control of spending</option>
-            <option value="debt">Pay off debt</option>
-            <option value="emergency">Build an emergency fund</option>
-            <option value="purchase">Save for something specific</option>
-          </select>
+          <Dropdown
+            value={goal}
+            onChange={(v: Goal) => setGoal(v)}
+            options={[
+              { value: "discipline", label: "Get control of spending", description: "Balanced preset" },
+              { value: "debt", label: "Pay off debt", description: "Starter preset, debt snowball" },
+              { value: "emergency", label: "Build an emergency fund", description: "Bigger emergency share" },
+              { value: "purchase", label: "Save for something specific", description: "Adds a savings envelope" },
+            ]}
+          />
         </Field>
       </div>
       <button className="btn btn-primary btn-block" disabled={monthly <= 0} onClick={next}>
@@ -491,8 +561,11 @@ function Preset() {
         <div className="preview-list">
           {preview.map((e) => (
             <div key={e.id} className="row">
-              <span>{e.name}</span>
-              <span className="muted">
+              <span>
+                <KindBadge kind={e.kind} size={26} />
+                {e.name}
+              </span>
+              <span className="muted num">
                 {e.percent !== undefined ? `${e.percent}% · ` : ""}
                 {fmtShort(e.target)}
                 {e.cadence === "weekly" ? " / week" : " / month"}
@@ -541,31 +614,36 @@ function Review() {
       <div className="card">
         {envs.map((e) => (
           <div key={e.id} className="review-row">
+            <KindBadge kind={e.kind} size={30} />
             <input className="name-input" value={e.name} onChange={(ev) => update(e.id, { name: ev.target.value })} aria-label="Envelope name" />
             <MoneyInput value={e.target} onChange={(v) => update(e.id, { target: v })} ariaLabel={`${e.name} amount`} />
-            <select value={e.cadence} onChange={(ev) => update(e.id, { cadence: ev.target.value as Envelope["cadence"] })} aria-label={`${e.name} cadence`}>
-              <option value="monthly">/ month</option>
-              <option value="weekly">/ week</option>
-            </select>
+            <Dropdown
+              ariaLabel={`${e.name} cadence`}
+              value={e.cadence}
+              onChange={(v: Envelope["cadence"]) => update(e.id, { cadence: v })}
+              options={[
+                { value: "monthly", label: "per month" },
+                { value: "weekly", label: "per week" },
+              ]}
+            />
             {e.kind === "emergency" ? (
-              <span className="muted small" title="The emergency fund is required. It's where declined-purchase overrides come from.">
-                Required
+              <span className="icon-btn" title="Required. Declined purchases get covered from here." aria-label="Required envelope">
+                <Lock size={15} />
               </span>
             ) : (
-              <button className="link-btn small" onClick={() => set({ envelopes: envs.filter((x) => x.id !== e.id) })}>
-                Remove
+              <button className="icon-btn" onClick={() => set({ envelopes: envs.filter((x) => x.id !== e.id) })} aria-label={`Remove ${e.name}`}>
+                <Trash2 size={15} />
               </button>
             )}
           </div>
         ))}
         <div className="review-add">
-          <select value={addKind} onChange={(e) => setAddKind(e.target.value as EnvelopeKind)} aria-label="Envelope type to add">
-            {ADDABLE.map((k) => (
-              <option key={k} value={k}>
-                {KIND_LABELS[k]}
-              </option>
-            ))}
-          </select>
+          <Dropdown
+            ariaLabel="Envelope type to add"
+            value={addKind}
+            onChange={setAddKind}
+            options={ADDABLE.map((k) => ({ value: k, label: KIND_LABELS[k], icon: <KindBadge kind={k} size={30} />, group: GROUP_LABEL[KIND_META[k].group] }))}
+          />
           <button
             className="btn btn-outline btn-sm"
             onClick={() => set({ envelopes: [...envs, makeEnvelope(addKind, { now: state.now, target: Math.max(0, left), priority: 100 + envs.length })] })}
@@ -619,9 +697,10 @@ function Fund() {
         </button>
       ) : (
         <>
-          <div className="card row">
-            <span>
-              {state.bank.institution} {state.bank.accountName}
+          <div className="tile row" style={{ gap: 10, cursor: "default", marginBottom: 14 }}>
+            <BankLogo name={state.bank.institution} />
+            <span style={{ flex: 1 }}>
+              <strong>{state.bank.institution}</strong> {state.bank.accountName}
             </span>
             <span className="muted">•••• {state.bank.mask}</span>
           </div>
@@ -671,6 +750,7 @@ export function PlaidLinkModal({ onClose, onLinked }: { onClose: () => void; onL
         <div className="bank-grid">
           {INSTITUTIONS.map((i) => (
             <button key={i} className="tile" onClick={() => setInst(i)}>
+              <BankLogo name={i} />
               {i}
             </button>
           ))}
@@ -703,7 +783,8 @@ export function PlaidLinkModal({ onClose, onLinked }: { onClose: () => void; onL
         <div className="stack">
           <p className="small">Which account should fund Fin?</p>
           {accounts.map((a) => (
-            <button key={a.mask} className="tile row" onClick={() => onLinked({ institution: inst, ...a })}>
+            <button key={a.mask} className="tile row" style={{ gap: 10 }} onClick={() => onLinked({ institution: inst, ...a })}>
+              <BankLogo name={inst} />
               <span>{a.accountName}</span>
               <span className="muted">•••• {a.mask}</span>
             </button>
@@ -733,8 +814,11 @@ export function AssignPlan({ onDone, compact }: { onDone?: () => void; compact?:
               const e = state.envelopes.find((x) => x.id === p.envelopeId)!;
               return (
                 <div key={p.envelopeId} className="row">
-                  <span>{e.name}</span>
-                  <span>+{fmt(p.amount)}</span>
+                  <span>
+                    <KindBadge kind={e.kind} size={26} />
+                    {e.name}
+                  </span>
+                  <span className="num t-good">+{fmt(p.amount)}</span>
                 </div>
               );
             })}
@@ -766,13 +850,7 @@ function PutRest({ amount }: { amount: Cents }) {
   const [to, setTo] = useState(savings.find((e) => e.kind === "debt")?.id ?? savings[0]?.id ?? state.envelopes[0]?.id ?? "");
   return (
     <div className="split-row top-gap">
-      <select value={to} onChange={(e) => setTo(e.target.value)} aria-label="Envelope for the extra money">
-        {state.envelopes.map((e) => (
-          <option key={e.id} value={e.id}>
-            {e.name}
-          </option>
-        ))}
-      </select>
+      <Dropdown ariaLabel="Envelope for the extra money" value={to} onChange={setTo} options={envelopeOptions(state.envelopes)} />
       <button className="btn btn-outline" disabled={!to} onClick={() => act((s) => assign(s, to, Math.min(amount, s.unassigned)))}>
         Put {fmt(amount)} there
       </button>

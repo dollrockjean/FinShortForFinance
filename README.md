@@ -13,7 +13,20 @@ npm test         # engine + TOTP tests
 npm run build    # static site in dist/
 ```
 
-On the landing page, "Open the demo account" loads about ten weeks of history. "Go through signup" runs the full onboarding.
+On the landing page, "Open the demo account" loads about ten weeks of history. "Go through signup" runs the full onboarding. "How it works" opens a long explainer of how the product would run for real, which is also in the app's sidebar.
+
+## Testing payments
+
+Open the Test payments panel from the top bar ("Test a payment"), the sidebar, the Overview quick actions, the Card page, or the floating button on phones. It slides in over whatever page you're on and has four tabs:
+
+- Card: pick a ready-made scenario (gas pump hold, a dinner that doesn't fit, a big-box store with a vague code, a blocked casino, and more) or build your own merchant, amount and envelope. A live preview says whether it will approve or decline before you tap. The result shows each authorization check in order, the envelope balance before and after, and on a decline, the emergency-fund cover with a note.
+- Cash: log off-card spending against an envelope.
+- Deposit: a paycheck or plain transfer, landing now or in 2 days, plus one-tap fill by priority.
+- Time: move the demo clock and see what's coming up (holds settling, transfers landing, subscriptions renewing, period resets).
+
+## Design
+
+White base with a light green accent (#4CAF7D), a darker green gradient for the balance card, and a near-black dark theme. Each envelope type has its own icon and color from a colorblind-checked palette, always shown next to its name. Status colors (green, amber, red, blue) are reserved for on track, running low, declined or empty, and needs a check, and always come with an icon and a label. Icons are from Lucide. Dropdowns are custom listboxes with icons, descriptions, grouping, search and keyboard support.
 
 ## What works
 
@@ -42,7 +55,9 @@ All state lives in the browser's localStorage (`fin-state-v2`). Nothing is sent 
 - `src/engine/presets.ts`: preset definitions and percent-of-income math.
 - `src/engine/seed.ts`: the demo account. It's built by replaying activity through the engine, not by typing in balances.
 - `src/engine/totp.ts`: TOTP via WebCrypto.
-- `src/views/*`: screens. `src/store.tsx`: state container and persistence.
+- `src/views/*`: screens. `PaymentPanel.tsx` is the test panel, `About.tsx` the explainer.
+- `src/components/*`: dropdowns, menus, panels, toasts, charts, envelope and transaction rows, category icons and colors.
+- `src/store.tsx`: state container and persistence.
 
 Money is integer cents everywhere.
 

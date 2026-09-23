@@ -184,7 +184,7 @@ export type OnboardingStep =
   | "card"
   | "done";
 
-export type View = "home" | "budget" | "activity" | "money" | "card" | "settings";
+export type View = "home" | "budget" | "activity" | "money" | "card" | "settings" | "about";
 
 export interface AppState {
   version: 2;

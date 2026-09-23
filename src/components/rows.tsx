@@ -1,39 +1,48 @@
+import { CalendarClock, Hourglass, ShieldAlert } from "lucide-react";
 import { useStore } from "../store";
 import { Envelope, Transaction } from "../types";
 import { available, usage } from "../engine/ledger";
 import { fmt, fmtDate } from "../engine/util";
-import { Progress, toneFor } from "./ui";
+import { KindBadge, MerchantAvatar, kindStyle } from "./meta";
+import { Progress, StatusPill, toneFor } from "./ui";
 
-export function EnvelopeRow({ e, onClick }: { e: Envelope; onClick?: () => void }) {
+export function envStatus(e: Envelope) {
+  if (!e.cardSpendable) return { status: "neutral" as const, label: e.target && e.fundedThisPeriod >= e.target ? "Funded" : "Saving" };
   const u = usage(e);
-  const tone = e.cardSpendable ? toneFor(u) : "ok";
-  const avail = available(e);
-  const Tag = onClick ? "button" : "div";
+  if (u >= 1) return { status: "critical" as const, label: "Empty" };
+  if (u >= 0.8) return { status: "warning" as const, label: `${Math.round(u * 100)}% used` };
+  return { status: "good" as const, label: "On track" };
+}
+
+export function EnvelopeCard({ e, onClick }: { e: Envelope; onClick?: () => void }) {
+  const u = usage(e);
+  const st = envStatus(e);
   return (
-    <Tag className={`env-row ${onClick ? "clickable" : ""}`} onClick={onClick}>
-      <div className="row">
-        <span className="env-name">
-          {e.name}
-          {e.cadence === "weekly" && <span className="tag">weekly</span>}
-          {!e.cardSpendable && <span className="tag">no card</span>}
-        </span>
-        <span className={`env-left ${tone === "over" && e.cardSpendable ? "t-over" : ""}`}>{fmt(avail)}</span>
+    <button className="env-card" style={kindStyle(e.kind)} onClick={onClick}>
+      <div className="env-card-top">
+        <KindBadge kind={e.kind} size={34} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="env-card-name">{e.name}</div>
+          <div className="xs muted">{e.cadence === "weekly" ? "Resets Monday" : "Monthly"}</div>
+        </div>
+        <StatusPill status={st.status}>{st.label}</StatusPill>
       </div>
-      {e.cardSpendable ? (
-        <Progress value={u} tone={tone} />
-      ) : (
-        <Progress value={e.target ? Math.min(1, e.fundedThisPeriod / e.target) : 0} tone="ok" />
-      )}
-      <div className="row small muted">
+      <div>
+        <div className="env-card-amount">{fmt(available(e))}</div>
+        <div className="xs muted">{e.cardSpendable ? "left to spend" : "saved"}</div>
+      </div>
+      {e.cardSpendable ? <Progress value={u} tone={toneFor(u)} /> : <Progress value={e.target ? e.fundedThisPeriod / e.target : 1} tone="ok" />}
+      <div className="env-card-foot">
         <span>
-          {e.cardSpendable
-            ? `${fmt(e.spentThisPeriod)} spent this ${e.cadence === "weekly" ? "week" : "month"}`
-            : `${fmt(e.fundedThisPeriod)} of ${fmt(e.target)} added this month`}
-          {e.held > 0 && <span className="hold"> · {fmt(e.held)} pending hold</span>}
+          {e.cardSpendable ? `${fmt(e.spentThisPeriod)} of ${fmt(e.spentThisPeriod + e.balance)}` : `${fmt(e.fundedThisPeriod)} of ${fmt(e.target)} this month`}
         </span>
-        <span>{e.cardSpendable ? "available" : "saved"}</span>
+        {e.held > 0 && (
+          <span className="t-warn" style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+            <Hourglass size={12} /> {fmt(e.held)}
+          </span>
+        )}
       </div>
-    </Tag>
+    </button>
   );
 }
 
@@ -42,29 +51,56 @@ export function envelopeNames(tx: Transaction, envelopes: Envelope[]): string {
   return tx.allocations.map((a) => envelopes.find((e) => e.id === a.envelopeId)?.name ?? "Deleted envelope").join(" + ");
 }
 
-export function TxRow({ tx, onClick }: { tx: Transaction; onClick?: () => void }) {
+export function txStatus(tx: Transaction) {
+  if (tx.status === "declined") return <StatusPill status="critical">Declined</StatusPill>;
+  if (tx.status === "pending") return <StatusPill status="warning">Pending</StatusPill>;
+  if (!tx.confirmed) return <StatusPill status="info">Check category</StatusPill>;
+  return null;
+}
+
+export function TxRow({ tx, onClick, showDate = true }: { tx: Transaction; onClick?: () => void; showDate?: boolean }) {
   const { state } = useStore();
-  const tags: string[] = [];
-  if (tx.status === "pending") tags.push(`pending hold ${fmt(tx.holdAmount ?? tx.amount)}`);
-  if (tx.source === "manual") tags.push("cash");
-  if (tx.override) tags.push(`${fmt(tx.override.amount)} from emergency fund`);
-  if (tx.decline?.coveredBy) tags.push("covered, retried");
-  const needsReview = tx.status !== "declined" && !tx.confirmed;
+  const first = state.envelopes.find((e) => e.id === tx.allocations[0]?.envelopeId);
   return (
-    <button className={`tx-row ${tx.status}`} onClick={onClick}>
+    <button className="tx-row" onClick={onClick}>
+      <MerchantAvatar name={tx.merchant} mcc={tx.mcc} cash={tx.source === "manual"} />
       <div className="tx-main">
-        <span className="tx-merchant">
-          {tx.merchant}
-          {needsReview && <span className="tag tag-attn">check category</span>}
-        </span>
-        <span className="small muted">
-          {tx.status === "declined" ? `Declined · ${tx.decline?.code === "insufficient" ? envelopeNames(tx, state.envelopes) : tx.decline?.message}` : envelopeNames(tx, state.envelopes)}
-          {" · "}
-          {fmtDate(tx.createdAt)}
-          {tags.length > 0 && ` · ${tags.join(" · ")}`}
+        <span className="tx-merchant">{tx.merchant}</span>
+        <span className="tx-sub">
+          {first && (
+            <span className="chip chip-c" style={kindStyle(first.kind)}>
+              <span className="dot-c" />
+              {envelopeNames(tx, state.envelopes)}
+            </span>
+          )}
+          {!first && <span className="chip">No envelope</span>}
+          {showDate && <span>{fmtDate(tx.createdAt)}</span>}
+          {tx.source === "manual" && <span>Cash</span>}
+          {tx.override && (
+            <span className="t-warn" style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+              <ShieldAlert size={12} /> {fmt(tx.override.amount)} from emergency
+            </span>
+          )}
+          {tx.status === "pending" && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+              <CalendarClock size={12} /> holding {fmt(tx.holdAmount ?? tx.amount)}
+            </span>
+          )}
         </span>
       </div>
-      <span className={`tx-amt ${tx.status === "declined" ? "t-declined" : ""}`}>{fmt(tx.amount)}</span>
+      <div className="tx-right">
+        <span className={`tx-amt ${tx.status}`}>-{fmt(tx.amount)}</span>
+        {txStatus(tx)}
+      </div>
     </button>
+  );
+}
+
+export function EnvName({ e }: { e: Envelope }) {
+  return (
+    <span className="row gap" style={{ gap: 8 }}>
+      <KindBadge kind={e.kind} size={24} />
+      {e.name}
+    </span>
   );
 }
