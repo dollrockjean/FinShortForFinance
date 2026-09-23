@@ -2,8 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fin — proof of concept</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Fin</title>
+    <meta name="description" content="Fin splits your money into envelopes and its card can't spend past what's in one. A proof of concept for enforced zero-based budgeting." />
+    <meta name="theme-color" content="#ffffff" />
+    <meta property="og:title" content="Fin" />
+    <meta property="og:description" content="A budget your card actually follows." />
+    <meta property="og:url" content="https://finforfinance.com/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+    <script>
+      // set the theme before first paint so dark mode doesn't flash white
+      try {
+        var t = (JSON.parse(localStorage.getItem("fin-state-v2") || "{}").theme) || "system";
+        var dark = t === "dark" || (t === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
