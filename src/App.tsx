@@ -19,10 +19,11 @@ import {
 } from "lucide-react";
 import { useStore } from "./store";
 import { Notice, View } from "./types";
-import { FinMark, Logo, Menu } from "./components/ui";
+import { FinMark, Logo, Menu, Progress } from "./components/ui";
+import { monthlyEquivalent } from "./engine/presets";
 import { UiCtx, initials } from "./components/options";
 import { advanceDays } from "./engine/clock";
-import { fmt, fmtDate } from "./engine/util";
+import { fmt, fmtDate, sum } from "./engine/util";
 import Landing from "./views/Landing";
 import Onboarding from "./views/Onboarding";
 import Home from "./views/Home";
@@ -36,7 +37,7 @@ import PaymentPanel, { PanelTab } from "./views/PaymentPanel";
 
 const NAV: { id: View; label: string; icon: typeof Wallet; title: string; sub: string }[] = [
   { id: "home", label: "Overview", icon: LayoutDashboard, title: "Overview", sub: "Where your money stands today" },
-  { id: "budget", label: "Budget", icon: Wallet, title: "Budget", sub: "Envelopes, targets and fill order" },
+  { id: "budget", label: "Budget", icon: Wallet, title: "Budget", sub: "Categories, targets and fill order" },
   { id: "activity", label: "Activity", icon: ListOrdered, title: "Activity", sub: "Every purchase, hold and decline" },
   { id: "money", label: "Transfers", icon: ArrowLeftRight, title: "Transfers", sub: "Money in from your bank and back out" },
   { id: "card", label: "Card", icon: CreditCard, title: "Card", sub: "Your Fin card and its controls" },
@@ -113,6 +114,31 @@ function Clock({ compact }: { compact?: boolean }) {
   );
 }
 
+function MonthWidget() {
+  const { state, set } = useStore();
+  const month = state.now.slice(0, 7);
+  const spent = sum(state.transactions.filter((t) => t.status === "settled" && t.createdAt.slice(0, 7) === month).map((t) => t.amount));
+  const planned = sum(state.envelopes.filter((e) => e.cardSpendable).map(monthlyEquivalent));
+  const d = new Date(state.now);
+  const daysLeft = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate() - d.getUTCDate();
+  const u = planned > 0 ? spent / planned : 0;
+  return (
+    <button className="sidebar-month" onClick={() => set({ view: "budget" })} style={{ textAlign: "left", cursor: "pointer", width: "100%" }}>
+      <div className="row">
+        <strong className="small">{d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" })}</strong>
+        <span className="xs faint">{daysLeft} days left</span>
+      </div>
+      <div className="num" style={{ fontSize: 18, fontWeight: 600, margin: "4px 0 6px" }}>
+        {fmt(spent)}
+      </div>
+      <Progress value={u} tone={u >= 1 ? "over" : u >= 0.8 ? "warn" : "ok"} />
+      <div className="xs muted" style={{ marginTop: 5 }}>
+        spent of {fmt(planned)} planned for spending
+      </div>
+    </button>
+  );
+}
+
 function MainApp() {
   const { state, set } = useStore();
   const [showNotices, setShowNotices] = useState(false);
@@ -154,6 +180,7 @@ function MainApp() {
               {n.label}
             </button>
           ))}
+          <MonthWidget />
           <div className="sidebar-foot">
             <Clock />
             <div className="user-chip">

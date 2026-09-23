@@ -112,10 +112,10 @@ export default function Activity() {
           <Dropdown compact ariaLabel="Status" value={status} onChange={setStatus} options={statusOptions} />
           <Dropdown
             compact
-            ariaLabel="Envelope"
+            ariaLabel="Category"
             value={envelope}
             onChange={setEnvelope}
-            options={[{ value: "all", label: "All envelopes", icon: <ListFilter size={15} className="faint" /> }, ...envelopeOptions(state.envelopes, { showBalance: false })]}
+            options={[{ value: "all", label: "All categories", icon: <ListFilter size={15} className="faint" /> }, ...envelopeOptions(state.envelopes, { showBalance: false })]}
           />
           <Dropdown
             compact
@@ -290,7 +290,7 @@ export function TxDetail({ txId, onClose }: { txId: string; onClose: () => void 
       <div className="kv">
         <span>Date</span>
         <span>{fmtDateLong(tx.createdAt)}</span>
-        <span>Envelope</span>
+        <span>Category</span>
         <span>{envelopeNames(tx, state.envelopes)}</span>
         {tx.mcc && (
           <>
@@ -302,7 +302,7 @@ export function TxDetail({ txId, onClose }: { txId: string; onClose: () => void 
         )}
         {tx.suggestionReason && (
           <>
-            <span>Why this envelope</span>
+            <span>Why this category</span>
             <span>{tx.suggestionReason}</span>
           </>
         )}
@@ -348,7 +348,7 @@ export function TxDetail({ txId, onClose }: { txId: string; onClose: () => void 
           )}
           <div className="grid-2">
             <button className="btn btn-outline" onClick={() => setMode("change")}>
-              <ArrowRightLeft size={15} /> Change envelope
+              <ArrowRightLeft size={15} /> Change category
             </button>
             <button className="btn btn-outline" onClick={() => setMode("split")}>
               <Split size={15} /> Split it
@@ -359,7 +359,7 @@ export function TxDetail({ txId, onClose }: { txId: string; onClose: () => void 
 
       {mode === "change" && (
         <div className="top-gap">
-          <Field label="Envelope" hint={`Pick the same envelope for ${tx.merchant} twice and Fin makes it the default.`}>
+          <Field label="Category" hint={`Pick the same category for ${tx.merchant} twice and Fin makes it the default.`}>
             <Dropdown value={single} onChange={setSingle} options={opts} />
           </Field>
           <ErrorText>{error}</ErrorText>
@@ -373,7 +373,7 @@ export function TxDetail({ txId, onClose }: { txId: string; onClose: () => void 
         <div className="top-gap">
           {split.map((a, i) => (
             <div key={i} className="split-row">
-              <Dropdown value={a.envelopeId} onChange={(v) => setSplit(split.map((x, j) => (j === i ? { ...x, envelopeId: v } : x)))} options={opts} ariaLabel="Envelope" />
+              <Dropdown value={a.envelopeId} onChange={(v) => setSplit(split.map((x, j) => (j === i ? { ...x, envelopeId: v } : x)))} options={opts} ariaLabel="Category" />
               <MoneyInput value={a.amount} onChange={(v) => setSplit(split.map((x, j) => (j === i ? { ...x, amount: v } : x)))} ariaLabel="Amount" />
               <button className="icon-btn" disabled={split.length <= 2} onClick={() => setSplit(split.filter((_, j) => j !== i))} aria-label="Remove row">
                 <Trash2 size={15} />
@@ -382,7 +382,7 @@ export function TxDetail({ txId, onClose }: { txId: string; onClose: () => void 
           ))}
           <div className="row small">
             <button className="link-btn small" onClick={() => setSplit([...split, { envelopeId: spendable[0]?.id ?? "", amount: 0 }])}>
-              + Add envelope
+              + Add category
             </button>
             {splitTotal === tx.amount ? (
               <StatusPill status="good">Adds up</StatusPill>
@@ -399,7 +399,7 @@ export function TxDetail({ txId, onClose }: { txId: string; onClose: () => void 
           <button className="btn btn-primary btn-block top-gap" disabled={splitTotal !== tx.amount} onClick={() => run((s) => reassign(s, tx.id, split), "Split saved")}>
             <Split size={15} /> Save split
           </button>
-          <div className="xs muted top-gap">Each envelope needs enough free money to take its share.</div>
+          <div className="xs muted top-gap">Each category needs enough free money to take its share.</div>
         </div>
       )}
     </Modal>

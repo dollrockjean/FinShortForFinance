@@ -36,6 +36,12 @@ export interface Envelope {
   priority: number; // lower fills first when assigning a paycheck
   warned80: boolean;
   warned100: boolean;
+  // personal touches
+  icon?: string; // icon key, overrides the type's icon
+  color?: string; // hex, overrides the type's color
+  maxPerPurchase?: Cents; // card declines any single purchase above this
+  warnAt?: number; // 0-1, when to send the running-low warning (default 0.8)
+  note?: string;
 }
 
 export interface Allocation {
@@ -43,7 +49,7 @@ export interface Allocation {
   amount: Cents;
 }
 
-export type DeclineCode = "insufficient" | "frozen" | "blocked_mcc" | "not_spendable" | "no_envelope";
+export type DeclineCode = "insufficient" | "frozen" | "blocked_mcc" | "not_spendable" | "no_envelope" | "over_limit";
 
 export interface Transaction {
   id: string;
@@ -120,7 +126,7 @@ export interface IncomeProfile {
   goal: Goal;
 }
 
-export type PresetId = "starter" | "balanced" | "percent" | "custom";
+export type PresetId = "starter" | "balanced" | "percent" | "lean" | "saver" | "family" | "custom";
 
 export interface User {
   name: string;
@@ -189,6 +195,7 @@ export type View = "home" | "budget" | "activity" | "money" | "card" | "settings
 export interface AppState {
   version: 2;
   theme: "light" | "dark" | "system";
+  themeSet?: boolean; // the person picked a theme themselves
   now: string; // the demo clock
   testMode: boolean;
   step: OnboardingStep;

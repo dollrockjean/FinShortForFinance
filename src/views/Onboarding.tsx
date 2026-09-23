@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { useStore } from "../store";
 import { AppState, Cents, Envelope, EnvelopeKind, Goal, OnboardingStep, PayFrequency, PresetId } from "../types";
 import { Callout, Dropdown, ErrorText, Field, Logo, Modal, MoneyInput, Segmented, Toggle } from "../components/ui";
-import { KindBadge, GROUP_LABEL, KIND_META } from "../components/meta";
+import { KindBadge, GROUP_LABEL, KIND_META, EnvBadge } from "../components/meta";
 import type { LucideIcon } from "lucide-react";
 import { BadgeCheck, Building2, ClipboardList, CreditCard, Inbox, KeyRound, Layers, Lock, Mail, Sparkles, Trash2, UserRound, Apple } from "lucide-react";
 import { KIND_LABELS } from "../engine/catalog";
@@ -37,7 +37,7 @@ const STEP_NAMES: Record<string, string> = {
   kyc: "Identity",
   questionnaire: "Your money",
   preset: "Preset",
-  review: "Envelopes",
+  review: "Categories",
   fund: "Funding",
   assign: "Assign",
   card: "Card",
@@ -519,7 +519,7 @@ function Questionnaire() {
               { value: "discipline", label: "Get control of spending", description: "Balanced preset" },
               { value: "debt", label: "Pay off debt", description: "Starter preset, debt snowball" },
               { value: "emergency", label: "Build an emergency fund", description: "Bigger emergency share" },
-              { value: "purchase", label: "Save for something specific", description: "Adds a savings envelope" },
+              { value: "purchase", label: "Save for something specific", description: "Adds a savings category" },
             ]}
           />
         </Field>
@@ -562,7 +562,7 @@ function Preset() {
           {preview.map((e) => (
             <div key={e.id} className="row">
               <span>
-                <KindBadge kind={e.kind} size={26} />
+                <EnvBadge e={e} size={26} />
                 {e.name}
               </span>
               <span className="muted num">
@@ -604,7 +604,7 @@ function Review() {
   return (
     <Shell step="review" wide>
       <h1>Give every dollar a job</h1>
-      <p className="muted">Change anything. Weekly envelopes count about 4.3 times toward the month.</p>
+      <p className="muted">Change anything. Weekly categories count about 4.3 times toward the month.</p>
       <div className={`plan-bar ${left === 0 ? "ok" : left < 0 ? "over" : "warn"}`}>
         <span>
           Planned {fmtShort(planned)} of {fmtShort(income)}
@@ -614,8 +614,8 @@ function Review() {
       <div className="card">
         {envs.map((e) => (
           <div key={e.id} className="review-row">
-            <KindBadge kind={e.kind} size={30} />
-            <input className="name-input" value={e.name} onChange={(ev) => update(e.id, { name: ev.target.value })} aria-label="Envelope name" />
+            <EnvBadge e={e} size={30} />
+            <input className="name-input" value={e.name} onChange={(ev) => update(e.id, { name: ev.target.value })} aria-label="Category name" />
             <MoneyInput value={e.target} onChange={(v) => update(e.id, { target: v })} ariaLabel={`${e.name} amount`} />
             <Dropdown
               ariaLabel={`${e.name} cadence`}
@@ -627,7 +627,7 @@ function Review() {
               ]}
             />
             {e.kind === "emergency" ? (
-              <span className="icon-btn" title="Required. Declined purchases get covered from here." aria-label="Required envelope">
+              <span className="icon-btn" title="Required. Declined purchases get covered from here." aria-label="Required category">
                 <Lock size={15} />
               </span>
             ) : (
@@ -639,7 +639,7 @@ function Review() {
         ))}
         <div className="review-add">
           <Dropdown
-            ariaLabel="Envelope type to add"
+            ariaLabel="Category type to add"
             value={addKind}
             onChange={setAddKind}
             options={ADDABLE.map((k) => ({ value: k, label: KIND_LABELS[k], icon: <KindBadge kind={k} size={30} />, group: GROUP_LABEL[KIND_META[k].group] }))}
@@ -808,14 +808,14 @@ export function AssignPlan({ onDone, compact }: { onDone?: () => void; compact?:
     <div className={compact ? "" : "card"}>
       {plan.length > 0 ? (
         <>
-          <p className="small">Fills envelopes top to bottom by priority until the money runs out. Needs first, then the emergency fund, then everything else.</p>
+          <p className="small">Fills categories top to bottom by priority until the money runs out. Needs first, then the emergency fund, then everything else.</p>
           <div className="preview-list">
             {plan.map((p) => {
               const e = state.envelopes.find((x) => x.id === p.envelopeId)!;
               return (
                 <div key={p.envelopeId} className="row">
                   <span>
-                    <KindBadge kind={e.kind} size={26} />
+                    <EnvBadge e={e} size={26} />
                     {e.name}
                   </span>
                   <span className="num t-good">+{fmt(p.amount)}</span>
@@ -837,7 +837,7 @@ export function AssignPlan({ onDone, compact }: { onDone?: () => void; compact?:
           </button>
         </>
       ) : (
-        <p className="small muted">Every envelope is at its target for this period. Put the extra {fmt(state.unassigned)} somewhere on purpose: debt, the emergency fund, or a savings goal.</p>
+        <p className="small muted">Every category is at its target for this period. Put the extra {fmt(state.unassigned)} somewhere on purpose: debt, the emergency fund, or a savings goal.</p>
       )}
       {(leftover > 0 || plan.length === 0) && <PutRest amount={plan.length === 0 ? state.unassigned : leftover} />}
     </div>
@@ -850,7 +850,7 @@ function PutRest({ amount }: { amount: Cents }) {
   const [to, setTo] = useState(savings.find((e) => e.kind === "debt")?.id ?? savings[0]?.id ?? state.envelopes[0]?.id ?? "");
   return (
     <div className="split-row top-gap">
-      <Dropdown ariaLabel="Envelope for the extra money" value={to} onChange={setTo} options={envelopeOptions(state.envelopes)} />
+      <Dropdown ariaLabel="Category for the extra money" value={to} onChange={setTo} options={envelopeOptions(state.envelopes)} />
       <button className="btn btn-outline" disabled={!to} onClick={() => act((s) => assign(s, to, Math.min(amount, s.unassigned)))}>
         Put {fmt(amount)} there
       </button>
@@ -863,11 +863,11 @@ function Assign() {
   const pending = state.transfers.find((t) => t.direction === "in" && t.status === "pending");
   return (
     <Shell step="assign">
-      <h1>Fill your envelopes</h1>
+      <h1>Fill your categories</h1>
       {pending ? (
         <p className="muted">
           Your {fmt(pending.amount)} transfer is on its way and should land around {new Date(pending.arrivesAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}.
-          When it does, it goes to Unassigned and you'll fill envelopes from the Budget tab.
+          When it does, it goes to Unassigned and you'll fill categories from the Budget tab.
         </p>
       ) : (
         <>
@@ -893,7 +893,7 @@ function CardStep() {
     <Shell step="card">
       <h1>Your Fin card</h1>
       <p className="muted">
-        A virtual card is ready now for Apple Pay, Google Pay, and online checkout. It can only spend what's in an envelope, so a purchase that doesn't fit gets declined at the register.
+        A virtual card is ready now for Apple Pay, Google Pay, and online checkout. It can only spend what's in a category, so a purchase that doesn't fit gets declined at the register.
       </p>
       <Toggle checked={physical} onChange={setPhysical} label={`Also mail me a physical card${state.kyc.city ? ` (to ${state.kyc.city}, ${state.kyc.state})` : ""}`} />
       <button

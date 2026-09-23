@@ -26,7 +26,7 @@ export default function Money() {
   const source = state.envelopes.find((e) => e.id === outFrom);
   const fromBalance = source ? available(source) : state.unassigned;
   const fromOptions: Option<string>[] = [
-    { value: "unassigned", label: "Unassigned", icon: <span className="quick-icon" style={{ width: 30, height: 30 }}><Inbox size={15} /></span>, meta: fmt(state.unassigned), group: "Not in an envelope" },
+    { value: "unassigned", label: "Unassigned", icon: <span className="quick-icon" style={{ width: 30, height: 30 }}><Inbox size={15} /></span>, meta: fmt(state.unassigned), group: "Not in a category" },
     ...envelopeOptions(state.envelopes),
   ];
   const transfers = state.transfers.filter((x) => (filter === "all" ? true : filter === "pending" ? x.status === "pending" : x.direction === filter));

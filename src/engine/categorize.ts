@@ -42,7 +42,7 @@ export function suggestEnvelope(
         ambiguous,
       };
     }
-    return { envelope: null, reason: `Merchant code ${mcc} (${info.label}) has no matching envelope`, ambiguous };
+    return { envelope: null, reason: `Merchant code ${mcc} (${info.label}) has no matching category`, ambiguous };
   }
   return { envelope: null, reason: "Unknown merchant type", ambiguous: true };
 }

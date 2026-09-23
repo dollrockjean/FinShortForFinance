@@ -48,12 +48,12 @@ const STEPS = [
   {
     icon: Layers,
     title: "Give every dollar a job",
-    body: "You fill envelopes from Unassigned, by hand or with one tap that fills them in priority order: rent and bills, then groceries and gas, then the emergency fund, then everything else.",
+    body: "You fill categories from Unassigned, by hand or with one tap that fills them in priority order: rent and bills, then groceries and gas, then the emergency fund, then everything else.",
   },
   {
     icon: CreditCard,
     title: "Spend with the Fin card",
-    body: "A virtual card works right away in Apple Pay, Google Pay and online. A physical card is optional and arrives in about a week. Every swipe gets checked against one envelope's balance.",
+    body: "A virtual card works right away in Apple Pay, Google Pay and online. A physical card is optional and arrives in about a week. Every swipe gets checked against one category's balance.",
   },
 ];
 
@@ -63,13 +63,13 @@ function SwipeDiagram() {
     { x: 220, label: "Card network", sub: "Visa" },
     { x: 370, label: "Card issuer", sub: "Stripe Issuing" },
     { x: 520, label: "Fin", sub: "Authorization service", fin: true },
-    { x: 670, label: "Fin ledger", sub: "Envelope balances", fin: true },
+    { x: 670, label: "Fin ledger", sub: "Category balances", fin: true },
   ];
   const msgs: { from: number; to: number; y: number; text: string; sub?: string; kind?: "ok" | "no" }[] = [
     { from: 0, to: 1, y: 110, text: "Tap card, $45.48", sub: "merchant, MCC 5812" },
     { from: 1, to: 2, y: 150, text: "Authorization request" },
     { from: 2, to: 3, y: 190, text: "Real-time webhook", sub: "must answer in about 2 seconds" },
-    { from: 3, to: 4, y: 230, text: "Which envelope? What's free?", sub: "Eating out: $27.48" },
+    { from: 3, to: 4, y: 230, text: "Which category? What's free?", sub: "Eating out: $27.48" },
     { from: 4, to: 3, y: 270, text: "$27.48 < $45.48" },
     { from: 3, to: 2, y: 310, text: "Decline, short $18.00", kind: "no" },
     { from: 2, to: 1, y: 350, text: "Declined", kind: "no" },
@@ -77,7 +77,7 @@ function SwipeDiagram() {
   ];
   return (
     <div className="diagram">
-      <svg viewBox="0 0 740 430" role="img" aria-label="Sequence of a card authorization: the checkout sends a request through the card network to the issuer, which asks Fin; Fin checks the envelope in its ledger and answers approve or decline.">
+      <svg viewBox="0 0 740 430" role="img" aria-label="Sequence of a card authorization: the checkout sends a request through the card network to the issuer, which asks Fin; Fin checks the category in its ledger and answers approve or decline.">
         <defs>
           {["", "ok", "no"].map((k) => (
             <marker key={k} id={`ah${k}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -131,7 +131,7 @@ function MoneyDiagram() {
   ];
   return (
     <div className="diagram">
-      <svg viewBox="0 0 740 250" role="img" aria-label="Money flows from your bank by ACH into a pooled account at the partner bank. Stripe Treasury tracks your share as a financial account. Fin's ledger splits that balance into envelopes.">
+      <svg viewBox="0 0 740 250" role="img" aria-label="Money flows from your bank by ACH into a pooled account at the partner bank. Stripe Treasury tracks your share as a financial account. Fin's ledger splits that balance into categories.">
         <defs>
           <marker id="ahm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
             <path d="M0,0 L10,5 L0,10 z" className="arrowhead" />
@@ -201,7 +201,7 @@ const STACK = [
   ["Moving money", "Treasury inbound and outbound ACH transfers", "Demo clock lands transfers after 2 days"],
   ["The card", "Stripe Issuing, virtual and physical", "Simulated card"],
   ["Approve or decline", "Issuing real-time authorization webhook, answered by Fin", "The same authorize() function, called by the test panel"],
-  ["Envelopes and budget", "Fin's ledger in a server database", "Fin's ledger in local storage"],
+  ["Categories and budget", "Fin's ledger in a server database", "Fin's ledger in local storage"],
   ["Showing the card number", "Stripe Issuing Elements (hosted iframe)", "Never shown"],
 ];
 
@@ -211,10 +211,10 @@ const FAQ = [
     "What if Fin's servers don't answer in time?",
     "Card issuers let a program choose what happens when its webhook doesn't respond within the window. Fin would choose decline. Approving blind would break the one promise the product makes.",
   ],
-  ["Can I overdraft?", "No. A purchase only clears if the envelope has the money right then, so there's nothing to overdraw and no overdraft fee to charge."],
+  ["Can I overdraft?", "No. A purchase only clears if the category has the money right then, so there's nothing to overdraw and no overdraft fee to charge."],
   ["Is the money insured?", "In production, yes: the balance sits at an FDIC-member partner bank and qualifies for pass-through insurance up to the standard limit when the account records meet FDIC requirements. Fin itself isn't a bank."],
-  ["What about refunds?", "A refund would go back to the envelope the purchase came out of, so returning something to Target refills whatever the Target run was filed under."],
-  ["Why does leftover money go back to Unassigned?", "So it gets a new job on purpose instead of piling up quietly. You can turn on rollover for any envelope where piling up is the point, like savings goals."],
+  ["What about refunds?", "A refund would go back to the category the purchase came out of, so returning something to Target refills whatever the Target run was filed under."],
+  ["Why does leftover money go back to Unassigned?", "So it gets a new job on purpose instead of piling up quietly. You can turn on rollover for any category where piling up is the point, like savings goals."],
   ["Does it cost anything?", "This proof of concept doesn't handle real money. A real version would likely earn interchange on card spending, the way most debit card apps do, instead of charging fees."],
 ];
 
@@ -227,7 +227,7 @@ export default function About({ standalone, onBack }: { standalone?: boolean; on
         </div>
         <h1>A budget that holds up at the register, and how it would run for real</h1>
         <p>
-          Fin puts your money in envelopes and issues the card that spends it, so it can refuse a purchase the envelope can't cover. This page walks through every step: opening the account, moving
+          Fin puts your money in categories and issues the card that spends it, so it can refuse a purchase the category can't cover. This page walks through every step: opening the account, moving
           money, the split second at checkout, and the partners a production version would sit on.
         </p>
         <nav className="toc" aria-label="On this page">
@@ -256,7 +256,7 @@ export default function About({ standalone, onBack }: { standalone?: boolean; on
             <div className="feature-icon">
               <Wallet size={18} />
             </div>
-            <strong>Envelopes hold the money</strong>
+            <strong>Categories hold the money</strong>
             <p>Each one has a balance. Unassigned money can't be spent until it's in one.</p>
           </div>
           <div className="feature">
@@ -264,7 +264,7 @@ export default function About({ standalone, onBack }: { standalone?: boolean; on
               <Lock size={18} />
             </div>
             <strong>The balance is the rule</strong>
-            <p>No scoring or guessing at checkout. The envelope has the money or it doesn't.</p>
+            <p>No scoring or guessing at checkout. The category has the money or it doesn't.</p>
           </div>
           <div className="feature">
             <div className="feature-icon">
@@ -305,17 +305,17 @@ export default function About({ standalone, onBack }: { standalone?: boolean; on
         <SwipeDiagram />
         <ul className="top-gap">
           <li>
-            <strong>Card checks first.</strong> A frozen card, or a blocked merchant type like gambling, declines before any envelope is looked at.
+            <strong>Card checks first.</strong> A frozen card, or a blocked merchant type like gambling, declines before any category is looked at.
           </li>
           <li>
-            <strong>Then the envelope.</strong> Fin picks it from the merchant code, your past corrections, or the envelope you chose in the app before paying.
+            <strong>Then the category.</strong> Fin picks it from the merchant code, your past corrections, or the category you chose in the app before paying.
           </li>
           <li>
-            <strong>Then the balance.</strong> If the envelope has enough, Fin approves and takes the money out on the spot. If not, it declines and tells you which envelope and how much short.
+            <strong>Then the balance.</strong> If the category has enough, Fin approves and takes the money out on the spot. If not, it declines and tells you which category and how much short.
           </li>
           <li>
             <strong>The override.</strong> Fin can't approve a purchase after it's declined; card networks don't work that way. Instead it moves exactly the gap from the emergency fund into the
-            envelope, you tap again, and the retry goes through. Your note gets saved with it.
+            category, you tap again, and the retry goes through. Your note gets saved with it.
           </li>
         </ul>
       </section>
@@ -325,8 +325,8 @@ export default function About({ standalone, onBack }: { standalone?: boolean; on
           <span className="num-badge">4</span> Where the money sits
         </h2>
         <p>
-          Envelopes aren't separate bank accounts. There's one real balance at the partner bank, tracked as your Fin account. Fin's ledger divides that balance, and the rule never bends: Unassigned
-          plus every envelope always equals the account balance, to the cent.
+          Categories aren't separate bank accounts. There's one real balance at the partner bank, tracked as your Fin account. Fin's ledger divides that balance, and the rule never bends: Unassigned
+          plus every category always equals the account balance, to the cent.
         </p>
         <MoneyDiagram />
       </section>
@@ -336,7 +336,7 @@ export default function About({ standalone, onBack }: { standalone?: boolean; on
           <span className="num-badge">5</span> Holds and settlement
         </h2>
         <p>
-          Gas pumps, hotels and rental cars authorize more than they'll charge. A pump might hold $100 for a $43 fill-up. Fin sets the hold aside in the envelope as its own line, apart from what's
+          Gas pumps, hotels and rental cars authorize more than they'll charge. A pump might hold $100 for a $43 fill-up. Fin sets the hold aside in the category as its own line, apart from what's
           been spent, so the balance doesn't look wrong for the day it takes to settle.
         </p>
         <div className="feature-grid">
@@ -345,7 +345,7 @@ export default function About({ standalone, onBack }: { standalone?: boolean; on
               <Hourglass size={18} />
             </div>
             <strong>At the pump</strong>
-            <p>Gas envelope has $150. The $100 hold leaves $50 free to spend.</p>
+            <p>Gas category has $150. The $100 hold leaves $50 free to spend.</p>
           </div>
           <div className="feature">
             <div className="feature-icon">
@@ -359,7 +359,7 @@ export default function About({ standalone, onBack }: { standalone?: boolean; on
 
       <section id="categories">
         <h2>
-          <span className="num-badge">6</span> How purchases find their envelope
+          <span className="num-badge">6</span> How purchases find their category
         </h2>
         <ul>
           <li>
@@ -369,16 +369,16 @@ export default function About({ standalone, onBack }: { standalone?: boolean; on
             <strong>Some codes are vague.</strong> Walmart and Target use discount-store codes whether you bought milk or a TV. Those get flagged so you can confirm, change, or split them.
           </li>
           <li>
-            <strong>Fin learns.</strong> Move a merchant to the same envelope twice and it becomes the default for that merchant. Simple counting, no model.
+            <strong>Fin learns.</strong> Move a merchant to the same category twice and it becomes the default for that merchant. Simple counting, no model.
           </li>
           <li>
-            <strong>Splits.</strong> A $120 Target run can be $80 groceries and $40 household. Money moves between envelopes to match.
+            <strong>Splits.</strong> A $120 Target run can be $80 groceries and $40 household. Money moves between categories to match.
           </li>
           <li>
             <strong>Subscriptions.</strong> Same merchant, same amount, about a month apart: Fin flags it and offers to route future charges to Subscriptions.
           </li>
           <li>
-            <strong>Cash.</strong> The card never sees cash, so you log it. It comes out of the envelope like a swipe, and the same amount goes back to your bank.
+            <strong>Cash.</strong> The card never sees cash, so you log it. It comes out of the category like a swipe, and the same amount goes back to your bank.
           </li>
         </ul>
       </section>
@@ -388,7 +388,7 @@ export default function About({ standalone, onBack }: { standalone?: boolean; on
           <span className="num-badge">7</span> Budget periods
         </h2>
         <p>
-          Each envelope resets weekly (Mondays) or monthly (the 1st). Weekly envelopes top themselves back up from Unassigned. Monthly spending envelopes send leftover money back to Unassigned for
+          Each category resets weekly (Mondays) or monthly (the 1st). Weekly categories top themselves back up from Unassigned. Monthly spending categories send leftover money back to Unassigned for
           you to reassign; savings, debt and bills keep theirs. Warnings go out at 80% and 100% of an envelope.
         </p>
         <p>

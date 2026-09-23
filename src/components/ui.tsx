@@ -138,7 +138,7 @@ function useFloating(open: boolean, anchor: React.RefObject<HTMLElement | null>,
     const place = () => {
       const r = anchor.current!.getBoundingClientRect();
       const h = panel.current?.offsetHeight ?? 280;
-      const w = Math.max(r.width, 220);
+      const w = Math.max(r.width, 250);
       const below = window.innerHeight - r.bottom;
       const top = below < h + 12 && r.top > h + 12 ? r.top - h - 6 : r.bottom + 6;
       let left = align === "end" ? r.right - w : r.left;
@@ -186,7 +186,9 @@ export function Dropdown<T extends string>({
   id,
   compact,
   searchable,
+  iconOnly,
 }: {
+  iconOnly?: boolean;
   value: T | "";
   options: Option<T>[];
   onChange: (v: T) => void;
@@ -261,7 +263,7 @@ export function Dropdown<T extends string>({
         ref={btn}
         id={id}
         type="button"
-        className={`dropdown-btn ${compact ? "compact" : ""} ${open ? "open" : ""}`}
+        className={`dropdown-btn ${compact ? "compact" : ""} ${iconOnly ? "icon-only" : ""} ${open ? "open" : ""}`}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
@@ -270,8 +272,8 @@ export function Dropdown<T extends string>({
         onKeyDown={onKey}
       >
         {selected?.icon}
-        <span className={`dropdown-label ${selected ? "" : "placeholder"}`}>{selected?.label ?? placeholder}</span>
-        {selected?.meta && !compact && <span className="dropdown-meta">{selected.meta}</span>}
+        {!iconOnly && <span className={`dropdown-label ${selected ? "" : "placeholder"}`}>{selected?.label ?? placeholder}</span>}
+        {selected?.meta && !compact && !iconOnly && <span className="dropdown-meta">{selected.meta}</span>}
         <ChevronDown size={16} className="chev" />
       </button>
       {open &&

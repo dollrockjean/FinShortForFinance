@@ -11,6 +11,7 @@ import {
   manualExpense,
   planFill,
   reassign,
+  resetCategories,
   settle,
   totals,
   transferIn,
@@ -221,5 +222,43 @@ describe("cash spending", () => {
   it("can't assign more than Unassigned", () => {
     const s = funded();
     expect(assign(s, byKind(s, "groceries").id, s.unassigned + 1).error).toBeDefined();
+  });
+});
+
+describe("customization", () => {
+  it("resets every category and returns the money to Unassigned", () => {
+    let s = funded();
+    s = authorize(s, { merchant: "Shell", mcc: "5542", amount: 4200, hold: 10000 }).state;
+    const before = totals(s).cash;
+    expect(resetCategories(s).error).toMatch(/hold/);
+    s = resetCategories(s, { settleHolds: true }).state;
+    expect(s.envelopes).toHaveLength(0);
+    expect(s.unassigned).toBe(before - 4200);
+    expect(totals(s).cash).toBe(s.unassigned);
+    const r = authorize({ ...s }, { merchant: "Trader Joe's", mcc: "5411", amount: 100 });
+    expect(r.state.transactions[0].decline?.code).toBe("no_envelope");
+  });
+
+  it("enforces a per-purchase limit", () => {
+    let s = funded();
+    s = { ...s, envelopes: s.envelopes.map((e) => (e.kind === "dining" ? { ...e, maxPerPurchase: 1500 } : e)) };
+    expect(authorize(s, { merchant: "Chipotle", mcc: "5814", amount: 1400 }).state.transactions[0].status).toBe("settled");
+    expect(authorize(s, { merchant: "Chipotle", mcc: "5814", amount: 1600 }).state.transactions[0].decline?.code).toBe("over_limit");
+  });
+
+  it("warns at a custom threshold", () => {
+    let s = funded();
+    s = { ...s, envelopes: s.envelopes.map((e) => (e.kind === "groceries" ? { ...e, warnAt: 0.5 } : e)) };
+    const g = byKind(s, "groceries");
+    s = authorize(s, { merchant: "Trader Joe's", mcc: "5411", amount: Math.ceil(g.balance * 0.55) }).state;
+    expect(s.notices[0].title).toMatch(/Groceries is at 5\d%/);
+  });
+
+  it("every profile is zero-based and keeps the emergency fund", () => {
+    for (const p of ["lean", "saver", "family"] as const) {
+      const envs = buildEnvelopes(p, { ...funded().income!, householdSize: 4, debtTotal: 500000 }, NOW);
+      expect(Math.abs(sum(envs.map(monthlyEquivalent)) - 400000)).toBeLessThan(200);
+      expect(envs.some((e) => e.kind === "emergency")).toBe(true);
+    }
   });
 });

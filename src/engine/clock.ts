@@ -50,7 +50,7 @@ export function rollPeriods(state: AppState): void {
       title: "New budget period",
       body: [
         `${reset.join(", ")} reset.`,
-        refilled > 0 ? `Weekly envelopes topped up with ${fmt(refilled)}.` : "",
+        refilled > 0 ? `Weekly categories topped up with ${fmt(refilled)}.` : "",
         returned > 0 ? `${fmt(returned)} of unspent money went back to Unassigned. Give it a job.` : "",
       ]
         .filter(Boolean)

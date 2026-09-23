@@ -49,6 +49,7 @@ export function checkAlerts(state: AppState, envelopeId: string): void {
   const e = env(state, envelopeId);
   if (!e || !e.cardSpendable) return;
   const u = usage(e);
+  const warnAt = e.warnAt ?? 0.8;
   if (u >= 1 && !e.warned100) {
     e.warned100 = true;
     e.warned80 = true;
@@ -57,7 +58,7 @@ export function checkAlerts(state: AppState, envelopeId: string): void {
       title: `${e.name} is empty`,
       body: `Your card will decline anything else from ${e.name} until you move money in.`,
     });
-  } else if (u >= 0.8 && !e.warned80) {
+  } else if (u >= warnAt && !e.warned80) {
     e.warned80 = true;
     notify(state, {
       kind: "warn",
@@ -66,7 +67,7 @@ export function checkAlerts(state: AppState, envelopeId: string): void {
     });
   }
   if (u < 1) e.warned100 = false;
-  if (u < 0.8) e.warned80 = false;
+  if (u < warnAt) e.warned80 = false;
 }
 
 // ---- assigning money (zero-based: Unassigned is the only source of new envelope money)
@@ -74,7 +75,7 @@ export function checkAlerts(state: AppState, envelopeId: string): void {
 export function assign(prev: AppState, envelopeId: string, amount: Cents): Result {
   const state = clone(prev);
   const e = env(state, envelopeId);
-  if (!e) return { state: prev, error: "No such envelope" };
+  if (!e) return { state: prev, error: "No such category" };
   if (amount > 0 && amount > state.unassigned) return { state: prev, error: `Only ${fmt(state.unassigned)} is unassigned` };
   if (amount < 0 && -amount > available(e)) return { state: prev, error: `${e.name} only has ${fmt(available(e))} free` };
   state.unassigned -= amount;
@@ -89,7 +90,7 @@ export function move(prev: AppState, fromId: string, toId: string, amount: Cents
   const state = clone(prev);
   const from = env(state, fromId);
   const to = env(state, toId);
-  if (!from || !to) return { state: prev, error: "Pick both envelopes" };
+  if (!from || !to) return { state: prev, error: "Pick both categories" };
   if (available(from) < amount) return { state: prev, error: `${from.name} only has ${fmt(available(from))} free` };
   from.balance -= amount;
   from.fundedThisPeriod -= amount;
@@ -165,7 +166,7 @@ export function authorize(prev: AppState, req: AuthRequest): Result {
     source: "card",
     holdAmount: req.hold,
     allocations: e ? [{ envelopeId: e.id, amount: req.amount }] : [],
-    suggestionReason: req.envelopeId || state.nextPurchaseEnvelopeId ? "You picked this envelope before paying" : suggestion.reason,
+    suggestionReason: req.envelopeId || state.nextPurchaseEnvelopeId ? "You picked this category before paying" : suggestion.reason,
     confirmed: !!(req.envelopeId || state.nextPurchaseEnvelopeId) || (!!e && !suggestion.ambiguous && !!suggestion.envelope),
   };
 
@@ -186,7 +187,10 @@ export function authorize(prev: AppState, req: AuthRequest): Result {
     return decline("no_envelope", `${req.merchant} doesn't match any envelope. Pick one in Fin before you pay, then try again.`);
   }
   if (!e.cardSpendable) {
-    return decline("not_spendable", `${e.name} can't be spent by card. Move money into a spending envelope first.`);
+    return decline("not_spendable", `${e.name} can't be spent by card. Move money into a spending category first.`);
+  }
+  if (e.maxPerPurchase && req.amount > e.maxPerPurchase) {
+    return decline("over_limit", `${e.name} has a ${fmt(e.maxPerPurchase)} limit per purchase, and this was ${fmt(req.amount)}.`);
   }
   const avail = available(e);
   if (avail < required) {
@@ -241,7 +245,7 @@ export function coverAndRetry(prev: AppState, txId: string, note: string): Resul
   if (tx.decline.coveredBy) return { state: prev, error: "Already covered" };
   const target = env(prev, tx.decline.envelopeId);
   const emergency = emergencyEnvelope(prev);
-  if (!target || !emergency) return { state: prev, error: "Missing envelope" };
+  if (!target || !emergency) return { state: prev, error: "Missing category" };
   const required = tx.holdAmount ?? tx.amount;
   const shortBy = Math.max(0, required - available(target));
   if (available(emergency) < shortBy) {
@@ -279,7 +283,7 @@ export function reassign(prev: AppState, txId: string, allocations: Allocation[]
   const tx = state.transactions.find((t) => t.id === txId);
   if (!tx || tx.status !== "settled") return { state: prev, error: "Only settled transactions can be changed" };
   const clean = allocations.filter((a) => a.amount > 0);
-  if (clean.length === 0) return { state: prev, error: "Pick at least one envelope" };
+  if (clean.length === 0) return { state: prev, error: "Pick at least one category" };
   if (sum(clean.map((a) => a.amount)) !== tx.amount) {
     return { state: prev, error: `Splits have to add up to ${fmt(tx.amount)}` };
   }
@@ -293,7 +297,7 @@ export function reassign(prev: AppState, txId: string, allocations: Allocation[]
   }
   for (const a of clean) {
     const e = env(state, a.envelopeId);
-    if (!e) return { state: prev, error: "No such envelope" };
+    if (!e) return { state: prev, error: "No such category" };
     if (available(e) < a.amount) {
       return { state: prev, error: `${e.name} only has ${fmt(available(e))} free. Move money in first, or split differently.` };
     }
@@ -329,7 +333,7 @@ export function manualExpense(
 ): Result {
   let state = clone(prev);
   const e = env(state, input.envelopeId);
-  if (!e) return { state: prev, error: "Pick an envelope" };
+  if (!e) return { state: prev, error: "Pick a category" };
   if (input.amount <= 0) return { state: prev, error: "Enter an amount" };
 
   const shortBy = input.amount - available(e);
@@ -413,7 +417,7 @@ export function transferOut(prev: AppState, source: string | "unassigned", amoun
     state.unassigned -= amount;
   } else {
     const e = env(state, source);
-    if (!e) return { state: prev, error: "No such envelope" };
+    if (!e) return { state: prev, error: "No such category" };
     if (available(e) < amount) return { state: prev, error: `${e.name} only has ${fmt(available(e))} free` };
     e.balance -= amount;
     e.spentThisPeriod += amount;
@@ -445,5 +449,28 @@ export function completeTransfer(prev: AppState, id: string): Result {
     state.unassigned += t.amount;
     notify(state, { kind: "money", title: `${fmt(t.amount)} arrived`, body: "It's in Unassigned. Give it a job before the card can spend it." });
   }
+  return { state };
+}
+
+// Wipe every category. Money in them goes back to Unassigned, where it waits for the new setup.
+// Pending holds have to settle first, since they're tied to a category.
+export function resetCategories(prev: AppState, opts: { settleHolds?: boolean } = {}): Result {
+  let state = prev;
+  const pending = state.transactions.filter((t) => t.status === "pending");
+  if (pending.length > 0) {
+    if (!opts.settleHolds) return { state: prev, error: `${pending.length} pending hold${pending.length > 1 ? "s" : ""} need to settle first` };
+    for (const t of pending) state = settle(state, t.id).state;
+  }
+  state = clone(state);
+  const returned = sum(state.envelopes.map((e) => e.balance));
+  state.unassigned += returned;
+  state.envelopes = [];
+  state.corrections = {};
+  state.nextPurchaseEnvelopeId = null;
+  notify(state, {
+    kind: "info",
+    title: "Categories reset",
+    body: returned > 0 ? `${fmt(returned)} went back to Unassigned. Set up new categories to spend again.` : "Set up new categories to spend again.",
+  });
   return { state };
 }

@@ -7,7 +7,7 @@ export const PRESETS: { id: PresetId; label: string; blurb: string }[] = [
     id: "starter",
     label: "Starter, debt focused",
     blurb:
-      "Tight spending envelopes, a starter emergency fund, and everything left over thrown at debt. Built around the debt snowball: smallest balance first, roll each payment into the next.",
+      "Tight spending, a starter emergency fund, and everything left over thrown at debt, smallest balance first.",
   },
   {
     id: "balanced",
@@ -17,17 +17,34 @@ export const PRESETS: { id: PresetId; label: string; blurb: string }[] = [
   {
     id: "percent",
     label: "Percent of income",
-    blurb: "Each envelope is a percentage, not a dollar figure. Change your income and every target recalculates.",
+    blurb: "Each category is a percentage, not a dollar figure. Change your income and every target recalculates.",
+  },
+  {
+    id: "lean",
+    label: "Lean",
+    blurb: "Needs first and very little else. For a tight month, a job gap, or catching up after one.",
+  },
+  {
+    id: "saver",
+    label: "High saver",
+    blurb: "About 30% goes to savings and the emergency fund. Everyday spending is trimmed to fit.",
+  },
+  {
+    id: "family",
+    label: "Family",
+    blurb: "Bigger grocery, household and health shares, plus a category for kids and childcare.",
   },
   {
     id: "custom",
     label: "Custom",
-    blurb: "An emergency fund and nothing else. You build every envelope yourself.",
+    blurb: "An emergency fund and nothing else. You build every category yourself.",
   },
 ];
 
 export function recommendedPreset(income: IncomeProfile): PresetId {
   if (income.debtTotal > 0 || income.goal === "debt") return "starter";
+  if (income.householdSize >= 3) return "family";
+  if (income.goal === "emergency") return "saver";
   return "balanced";
 }
 
@@ -98,6 +115,50 @@ function presetRows(preset: PresetId, income: IncomeProfile): Row[] {
     ];
   } else if (preset === "custom") {
     rows = [{ kind: "emergency", pct: 0 }];
+  } else if (preset === "lean") {
+    rows = [
+      { kind: "housing", pct: 32 },
+      { kind: "utilities", pct: 7 },
+      { kind: "groceries", pct: 11 * groceryScale },
+      { kind: "transport", pct: 8 },
+      { kind: "health", pct: 4 },
+      { kind: "dining", pct: 1, cadence: "weekly" },
+      { kind: "subscriptions", pct: 1 },
+      { kind: "shopping", pct: 1 },
+      { kind: "emergency", pct: 12 },
+      { kind: hasDebt ? "debt" : "savings", pct: 0 },
+    ];
+  } else if (preset === "saver") {
+    rows = [
+      { kind: "housing", pct: 25 },
+      { kind: "utilities", pct: 5 },
+      { kind: "groceries", pct: 9 * groceryScale },
+      { kind: "transport", pct: 5 },
+      { kind: "health", pct: 4 },
+      { kind: "dining", pct: 4, cadence: "weekly" },
+      { kind: "subscriptions", pct: 2 },
+      { kind: "shopping", pct: 4 },
+      { kind: "entertainment", pct: 4 },
+      { kind: "emergency", pct: 10 },
+      ...(hasDebt ? [{ kind: "debt" as EnvelopeKind, pct: 8 }] : []),
+      { kind: "savings", pct: 0, name: "Savings and investing" },
+    ];
+  } else if (preset === "family") {
+    rows = [
+      { kind: "housing", pct: 27 },
+      { kind: "utilities", pct: 7 },
+      { kind: "groceries", pct: 13 * Math.min(1.5, groceryScale) },
+      { kind: "household", pct: 4 },
+      { kind: "transport", pct: 7 },
+      { kind: "health", pct: 6 },
+      { kind: "custom", pct: 6, name: "Kids and childcare" },
+      { kind: "dining", pct: 3, cadence: "weekly" },
+      { kind: "subscriptions", pct: 2 },
+      { kind: "shopping", pct: 4 },
+      { kind: "entertainment", pct: 3 },
+      { kind: "emergency", pct: 8 },
+      { kind: hasDebt ? "debt" : "savings", pct: 0 },
+    ];
   } else {
     rows = [
       { kind: "housing", pct: 28 },
@@ -124,10 +185,11 @@ function presetRows(preset: PresetId, income: IncomeProfile): Row[] {
     rows.splice(rows.length - 1, 0, { kind: "savings", pct: 5, name: "Big purchase" });
   }
 
+  for (const r of rows) r.pct = Math.round(r.pct * 10) / 10;
   if (preset !== "custom") {
     // last row soaks up whatever is left so the plan is exactly zero-based
     const used = sum(rows.slice(0, -1).map((r) => r.pct));
-    rows[rows.length - 1].pct = Math.max(0, 100 - used);
+    rows[rows.length - 1].pct = Math.max(0, Math.round((100 - used) * 10) / 10);
   }
   return rows;
 }

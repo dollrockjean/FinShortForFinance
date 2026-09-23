@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { AppState } from "../types";
 import { fmt, fmtShort, startOfMonth, sum } from "../engine/util";
-import { KindBadge, kindStyle } from "./meta";
+import { KindBadge, kindStyle, EnvBadge, envStyle } from "./meta";
 
 // Daily spending this month. One series, so no legend: the card title names it.
 export function DailySpendChart({ state }: { state: AppState }) {
@@ -98,8 +98,8 @@ export function EnvelopeBreakdown({ state, limit = 6 }: { state: AppState; limit
   return (
     <div>
       {shown.map(({ e, spent }) => (
-        <div key={e.id} className="breakdown-row" style={kindStyle(e.kind)}>
-          <KindBadge kind={e.kind} size={28} />
+        <div key={e.id} className="breakdown-row" style={envStyle(e)}>
+          <EnvBadge e={e} size={28} />
           <div>
             <div className="row small">
               <span>{e.name}</span>
@@ -114,7 +114,7 @@ export function EnvelopeBreakdown({ state, limit = 6 }: { state: AppState; limit
       {rest.length > 0 && (
         <div className="breakdown-row" style={kindStyle("custom")}>
           <KindBadge kind="custom" size={28} />
-          <div className="small muted">{rest.length} more envelopes</div>
+          <div className="small muted">{rest.length} more categories</div>
           <span className="small num">{fmt(sum(rest.map((r) => r.spent)))}</span>
         </div>
       )}

@@ -21,7 +21,8 @@ function load(): AppState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed?.version === 2) return { ...freshState(), ...parsed };
+      // white is the default; only a theme the person picked on purpose sticks
+      if (parsed?.version === 2) return { ...freshState(), ...parsed, theme: parsed.themeSet ? parsed.theme : "light" };
     }
   } catch {
     // private window or corrupt data: start clean

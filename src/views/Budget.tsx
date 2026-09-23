@@ -6,6 +6,8 @@ import {
   ArrowDown,
   Banknote,
   CalendarDays,
+  Check,
+  RotateCcw,
   CircleMinus,
   CirclePlus,
   Inbox,
@@ -25,10 +27,11 @@ import { makeEnvelope, monthlyEquivalent, recalcPercentTargets, targetFromPercen
 import { trailingAverage } from "../engine/clock";
 import { fmt, fmtDate, sum, uid } from "../engine/util";
 import { Callout, Dropdown, ErrorText, Field, Menu, Modal, MoneyInput, Option, Progress, Segmented, StatusPill, Toggle, toneFor, useToast } from "../components/ui";
-import { GROUP_LABEL, KIND_META, KindBadge } from "../components/meta";
+import { COLOR_CHOICES, ICON_CHOICES, kindStyle, GROUP_LABEL, KIND_META, KindBadge, EnvBadge } from "../components/meta";
 import { envStatus } from "../components/rows";
 import { envelopeOptions } from "../components/options";
 import { AssignPlan } from "./Onboarding";
+import CategorySetup, { ResetModal } from "./Setup";
 
 type Sort = "order" | "name" | "left" | "used";
 
@@ -39,6 +42,7 @@ export default function Budget() {
   const [sort, setSort] = useState<Sort>("order");
   const [grouping, setGrouping] = useState<"type" | "none">("type");
   const [ordering, setOrdering] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const income = state.income!;
   const planned = sum(state.envelopes.map(monthlyEquivalent));
   const left = income.monthlyIncome - planned;
@@ -53,6 +57,14 @@ export default function Budget() {
     grouping === "type"
       ? (["needs", "wants", "saving"] as const).map((g) => ({ key: g, label: GROUP_LABEL[g], items: sorted.filter((e) => KIND_META[e.kind].group === g) })).filter((g) => g.items.length)
       : [{ key: "all", label: "", items: sorted }];
+
+  if (state.envelopes.length === 0) {
+    return (
+      <div className="stack" style={{ gap: 18 }}>
+        <CategorySetup />
+      </div>
+    );
+  }
 
   return (
     <div className="stack" style={{ gap: 18 }}>
@@ -69,7 +81,7 @@ export default function Budget() {
             <Target size={14} /> Planned
           </div>
           <div className="value">{fmt(planned)}</div>
-          <div className="sub">{state.envelopes.length} envelopes</div>
+          <div className="sub">{state.envelopes.length} categories</div>
         </div>
         <div className="stat">
           <div className="label">
@@ -83,7 +95,7 @@ export default function Budget() {
             <Inbox size={14} /> Unassigned
           </div>
           <div className={`value ${state.unassigned > 0 ? "t-warn" : ""}`}>{fmt(state.unassigned)}</div>
-          <div className="sub">Cash with no envelope</div>
+          <div className="sub">Cash with no category</div>
         </div>
       </div>
 
@@ -102,7 +114,7 @@ export default function Budget() {
       <div className="card flush">
         <div className="toolbar" style={{ padding: "8px 16px 0", marginBottom: 10 }}>
           <h2 style={{ marginRight: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-            <Wallet size={17} className="faint" /> Envelopes
+            <Wallet size={17} className="faint" /> Categories
           </h2>
           {!ordering && (
             <>
@@ -134,13 +146,21 @@ export default function Budget() {
             <ListOrdered size={15} /> {ordering ? "Done" : "Edit fill order"}
           </button>
           <button className="btn btn-primary btn-sm" onClick={() => setAdding(true)}>
-            <Plus size={15} /> New envelope
+            <Plus size={15} /> New category
           </button>
+          <Menu
+            label="More category actions"
+            items={[
+              { label: "New category", icon: <Plus size={16} />, onClick: () => setAdding(true) },
+              { label: "Edit fill order", icon: <ListOrdered size={16} />, onClick: () => setOrdering(true) },
+              { label: "Reset all categories", icon: <RotateCcw size={16} />, danger: true, onClick: () => setResetting(true) },
+            ]}
+          />
         </div>
         {ordering ? (
           <>
             <p className="small muted" style={{ padding: "0 16px" }}>
-              New money fills envelopes from the top down, one target at a time. Needs go first.
+              New money fills categories from the top down, one target at a time. Needs go first.
             </p>
             {[...state.envelopes]
               .sort((a, b) => a.priority - b.priority)
@@ -151,7 +171,7 @@ export default function Budget() {
         ) : (
           <div className="env-table">
             <div className="env-table-head">
-              <span>Envelope</span>
+              <span>Category</span>
               <span>Target</span>
               <span>This period</span>
               <span className="right">Available</span>
@@ -178,6 +198,7 @@ export default function Budget() {
 
       {open && <EnvelopeModal id={open.id} initialTab={open.tab} onClose={() => setOpen(null)} />}
       {adding && <NewEnvelopeModal onClose={() => setAdding(false)} />}
+      {resetting && <ResetModal onClose={() => setResetting(false)} />}
     </div>
   );
 }
@@ -189,12 +210,13 @@ function EnvelopeLine({ e, onOpen }: { e: Envelope; onOpen: (tab: ModalTab) => v
   return (
     <div className="env-line" onClick={() => onOpen("money")} role="button" tabIndex={0} onKeyDown={(ev) => ev.key === "Enter" && onOpen("money")}>
       <div className="env-line-name">
-        <KindBadge kind={e.kind} size={34} />
+        <EnvBadge e={e} size={34} />
         <div style={{ minWidth: 0 }}>
           <strong>{e.name}</strong>
           <span className="xs muted">
             {e.cadence === "weekly" ? "Weekly" : "Monthly"} · {e.rollover ? "rolls over" : "resets"}
             {!e.cardSpendable && " · no card"}
+            {e.maxPerPurchase !== undefined && ` · max ${fmt(e.maxPerPurchase)} a purchase`}
           </span>
         </div>
       </div>
@@ -221,7 +243,7 @@ function EnvelopeLine({ e, onOpen }: { e: Envelope; onOpen: (tab: ModalTab) => v
           items={[
             { label: "Add money", icon: <CirclePlus size={16} />, onClick: () => onOpen("money") },
             { label: "Move money", icon: <ArrowRightLeft size={16} />, onClick: () => onOpen("move") },
-            { label: "Edit envelope", icon: <Pencil size={16} />, onClick: () => onOpen("settings") },
+            { label: "Edit category", icon: <Pencil size={16} />, onClick: () => onOpen("settings") },
           ]}
         />
       </div>
@@ -248,7 +270,7 @@ function OrderRow({ e, index, up, down }: { e: Envelope; index: number; up?: Env
         {index + 1}
       </span>
       <div className="env-line-name">
-        <KindBadge kind={e.kind} size={30} />
+        <EnvBadge e={e} size={30} />
         <div>
           <strong>{e.name}</strong>
           <span className="xs muted">needs {fmt(need(e))} this period</span>
@@ -292,7 +314,7 @@ export function EnvelopeModal({ id, onClose, initialTab = "money" }: { id: strin
   const patch = (p: Partial<Envelope>) => set({ envelopes: state.envelopes.map((x) => (x.id === e.id ? { ...x, ...p } : x)) });
 
   return (
-    <Modal title={e.name} onClose={onClose} icon={<KindBadge kind={e.kind} size={38} />}>
+    <Modal title={e.name} onClose={onClose} icon={<EnvBadge e={e} size={38} />}>
       <div className="row" style={{ marginBottom: 14 }}>
         <div>
           <div className="big-number">{fmt(available(e))}</div>
@@ -349,7 +371,7 @@ export function EnvelopeModal({ id, onClose, initialTab = "money" }: { id: strin
       {tab === "move" && (
         <div className="top-gap">
           <Field label="Move to">
-            <Dropdown value={moveTo} onChange={setMoveTo} options={envelopeOptions(others)} placeholder="Pick an envelope" />
+            <Dropdown value={moveTo} onChange={setMoveTo} options={envelopeOptions(others)} placeholder="Pick a category" />
           </Field>
           <Field label="Amount" hint={`${e.name} has ${fmt(available(e))} free.`}>
             <MoneyInput value={amount} onChange={setAmount} large />
@@ -409,6 +431,36 @@ export function EnvelopeModal({ id, onClose, initialTab = "money" }: { id: strin
           />
           <Toggle checked={e.rollover} onChange={(v) => patch({ rollover: v })} label="Roll over unspent money" sub="Off: leftovers go back to Unassigned each period for you to reassign" />
           {!isEmergency && <Toggle checked={e.cardSpendable} onChange={(v) => patch({ cardSpendable: v })} label="Card can spend from this" sub="Off for savings, debt and bills paid by transfer" />}
+
+          <div className="section-label">Look</div>
+          <AppearancePicker kind={e.kind} icon={e.icon} color={e.color} onChange={(p) => patch(p)} />
+
+          {e.cardSpendable && (
+            <>
+              <div className="section-label">Card rules</div>
+              <Toggle
+                checked={e.maxPerPurchase !== undefined}
+                onChange={(on) => patch({ maxPerPurchase: on ? Math.max(1000, Math.round(e.target / 4 / 100) * 100) : undefined })}
+                label="Limit each purchase"
+                sub="The card declines any single purchase above this, even with money left"
+              />
+              {e.maxPerPurchase !== undefined && (
+                <Field label="Most per purchase">
+                  <MoneyInput value={e.maxPerPurchase} onChange={(v) => patch({ maxPerPurchase: v || undefined })} />
+                </Field>
+              )}
+              <Field label="Warn me when it's this full">
+                <Dropdown
+                  value={String(Math.round((e.warnAt ?? 0.8) * 100))}
+                  onChange={(v) => patch({ warnAt: Number(v) / 100, warned80: false })}
+                  options={["50", "60", "70", "80", "90", "95"].map((v) => ({ value: v, label: `${v}% used`, description: v === "80" ? "Default" : undefined }))}
+                />
+              </Field>
+            </>
+          )}
+          <Field label="Note">
+            <input value={e.note ?? ""} onChange={(ev) => patch({ note: ev.target.value || undefined })} placeholder="Anything to remember about this category" />
+          </Field>
           {isEmergency ? (
             <Callout status="neutral">The emergency fund can't be deleted or spent by card. Declined purchases get covered from here.</Callout>
           ) : (
@@ -425,7 +477,7 @@ export function EnvelopeModal({ id, onClose, initialTab = "money" }: { id: strin
                 onClose();
               }}
             >
-              <Trash2 size={16} /> {e.held > 0 ? "Can't delete while a hold is pending" : `Delete envelope${e.balance > 0 ? ` (${fmt(e.balance)} goes to Unassigned)` : ""}`}
+              <Trash2 size={16} /> {e.held > 0 ? "Can't delete while a hold is pending" : `Delete category${e.balance > 0 ? ` (${fmt(e.balance)} goes to Unassigned)` : ""}`}
             </button>
           )}
         </div>
@@ -454,8 +506,9 @@ function NewEnvelopeModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [target, setTarget] = useState<Cents>(0);
   const [cadence, setCadence] = useState<Cadence>("monthly");
+  const [look, setLook] = useState<{ icon?: string; color?: string }>({});
   return (
-    <Modal title="New envelope" onClose={onClose} icon={<KindBadge kind={kind} size={38} />}>
+    <Modal title="New category" onClose={onClose} icon={<KindBadge kind={kind} size={38} icon={look.icon} color={look.color} />}>
       <Field label="Type" hint={NOT_CARD_SPENDABLE.includes(kind) ? "The card can't spend this type. Money leaves by transfer." : "The card spends from this. Purchases match by merchant code."}>
         <Dropdown value={kind} onChange={setKind} options={kindOptions()} />
       </Field>
@@ -477,18 +530,51 @@ function NewEnvelopeModal({ onClose }: { onClose: () => void }) {
           />
         </Field>
       </div>
+      <div className="section-label">Look</div>
+      <AppearancePicker kind={kind} icon={look.icon} color={look.color} onChange={(p) => setLook({ ...look, ...p })} />
       <button
-        className="btn btn-primary btn-block"
+        className="btn btn-primary btn-block top-gap"
         onClick={() => {
           const maxP = Math.max(0, ...state.envelopes.map((e) => e.priority));
-          set({ envelopes: [...state.envelopes, makeEnvelope(kind, { now: state.now, name: name.trim() || undefined, target, cadence, priority: maxP + 10 })] });
+          set({ envelopes: [...state.envelopes, { ...makeEnvelope(kind, { now: state.now, name: name.trim() || undefined, target, cadence, priority: maxP + 10 }), ...look }] });
           toast({ status: "good", title: `Created ${name.trim() || KIND_LABELS[kind]}` });
           onClose();
         }}
       >
-        <Plus size={16} /> Create envelope
+        <Plus size={16} /> Create category
       </button>
     </Modal>
+  );
+}
+
+function AppearancePicker({ kind, icon, color, onChange }: { kind: EnvelopeKind; icon?: string; color?: string; onChange: (p: { icon?: string; color?: string }) => void }) {
+  const current = kindStyle(kind, color);
+  return (
+    <div>
+      <div className="icon-grid" style={current} role="radiogroup" aria-label="Icon">
+        <button className={!icon ? "on" : ""} onClick={() => onChange({ icon: undefined })} title="Default for this type" role="radio" aria-checked={!icon}>
+          {(() => {
+            const Default = KIND_META[kind].icon;
+            return <Default size={17} />;
+          })()}
+        </button>
+        {Object.entries(ICON_CHOICES).map(([key, Icon]) => (
+          <button key={key} className={icon === key ? "on" : ""} onClick={() => onChange({ icon: key })} title={key} role="radio" aria-checked={icon === key} aria-label={key}>
+            <Icon size={17} />
+          </button>
+        ))}
+      </div>
+      <div className="swatches top-gap" role="radiogroup" aria-label="Color">
+        <button style={{ background: `var(--k-${kind})` }} className={!color ? "on" : ""} onClick={() => onChange({ color: undefined })} title="Default for this type" role="radio" aria-checked={!color}>
+          {!color && <Check size={13} strokeWidth={3} />}
+        </button>
+        {COLOR_CHOICES.map((c) => (
+          <button key={c} style={{ background: c }} className={color === c ? "on" : ""} onClick={() => onChange({ color: c })} aria-label={c} role="radio" aria-checked={color === c}>
+            {color === c && <Check size={13} strokeWidth={3} />}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -524,13 +610,13 @@ function IncomeSection() {
             />
           </div>
           {!income.irregular ? (
-            <Field label="Monthly take-home" hint="Envelopes set as a percent of income recalculate when this changes.">
+            <Field label="Monthly take-home" hint="Categories set as a percent of income recalculate when this changes.">
               <MoneyInput value={income.monthlyIncome} onChange={(v) => setIncome(v)} />
             </Field>
           ) : (
             <>
               <p className="small muted">
-                No fixed number. The plan runs on what actually came in, averaged. Log each paycheck when it lands, then fill envelopes from the top of your fill order down until it's spoken for.
+                No fixed number. The plan runs on what actually came in, averaged. Log each paycheck when it lands, then fill categories from the top of your fill order down until it's spoken for.
               </p>
               <div className="row">
                 <Dropdown

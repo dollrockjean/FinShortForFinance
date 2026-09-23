@@ -59,7 +59,7 @@ export default function Landing({ onAbout }: { onAbout: () => void }) {
   const { set, state } = useStore();
   const resume = state.user && state.step !== "landing";
   const signup = () => set({ step: resume ? state.step : "signup" });
-  const demo = () => set(demoState());
+  const demo = () => set({ ...demoState(), theme: state.theme, themeSet: state.themeSet });
 
   return (
     <div className="landing">
@@ -82,13 +82,13 @@ export default function Landing({ onAbout }: { onAbout: () => void }) {
         <section className="landing-hero">
           <div>
             <span className="eyebrow">
-              <Sparkles size={13} /> Envelope budgeting, enforced at checkout
+              <Sparkles size={13} /> Zero-based budgeting, enforced at checkout
             </span>
             <h1 className="hero-title">
               A budget your card <em>actually follows.</em>
             </h1>
             <p className="hero-sub">
-              Fin splits each paycheck into envelopes for groceries, gas, eating out, rent. The Fin card can only spend what's in the envelope. When eating out is empty, the next dinner gets
+              Fin splits each paycheck into categories for groceries, gas, eating out, rent. The Fin card can only spend what's in the category. When eating out is empty, the next dinner gets
               declined at the register instead of showing up as a guilty notification three days later.
             </p>
             <div className="row gap wrap">
@@ -116,7 +116,7 @@ export default function Landing({ onAbout }: { onAbout: () => void }) {
 
         <section className="landing-section">
           <h2>Four steps, then it runs itself</h2>
-          <p>The old cash-envelope system, minus the envelopes and the cash.</p>
+          <p>The old cash-envelope method, without the envelopes or the cash.</p>
           <div className="steps-row">
             <div className="step-card">
               <div className="step-n">
@@ -136,7 +136,7 @@ export default function Landing({ onAbout }: { onAbout: () => void }) {
                 Step 2
               </div>
               <strong>Every dollar gets a job</strong>
-              <p>One tap fills envelopes in order: rent and bills, groceries and gas, the emergency fund, then the fun stuff.</p>
+              <p>One tap fills categories in order: rent and bills, groceries and gas, the emergency fund, then the fun stuff.</p>
             </div>
             <div className="step-card">
               <div className="step-n">
@@ -146,7 +146,7 @@ export default function Landing({ onAbout }: { onAbout: () => void }) {
                 Step 3
               </div>
               <strong>The card checks first</strong>
-              <p>Each swipe draws on one envelope. If it doesn't have the money, the purchase declines and Fin tells you by how much.</p>
+              <p>Each swipe draws on one category. If it doesn't have the money, the purchase declines and Fin tells you by how much.</p>
             </div>
             <div className="step-card">
               <div className="step-n">

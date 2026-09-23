@@ -1,15 +1,34 @@
 import { useState } from "react";
-import { ArrowDownLeft, Banknote, ChartColumn, ChevronRight, CreditCard, Hourglass, Inbox, Layers, Repeat, Wallet, Zap } from "lucide-react";
+import {
+  ArrowDownLeft,
+  Banknote,
+  ChartColumn,
+  ChevronRight,
+  CircleCheck,
+  CircleX,
+  CreditCard,
+  Hourglass,
+  Inbox,
+  Info,
+  Layers,
+  ListChecks,
+  Repeat,
+  Sparkles,
+  TriangleAlert,
+  Wallet,
+  Zap,
+} from "lucide-react";
 import { useStore } from "../store";
 import { Transaction } from "../types";
 import { totals } from "../engine/ledger";
 import { detectRecurring } from "../engine/categorize";
-import { fmt } from "../engine/util";
-import { Callout, Empty, FinMark, Segmented } from "../components/ui";
+import { fmt, fmtDate } from "../engine/util";
+import { Empty, FinMark, Segmented } from "../components/ui";
 import { EnvelopeCard, TxRow } from "../components/rows";
 import { DailySpendChart, EnvelopeBreakdown } from "../components/charts";
 import { DeclineModal } from "../components/Decline";
 import { useUi } from "../components/options";
+import { upcoming } from "../components/upcoming";
 import { TxDetail } from "./Activity";
 import { EnvelopeModal } from "./Budget";
 
@@ -23,6 +42,8 @@ function Money({ c }: { c: number }) {
   );
 }
 
+type Alert = { key: string; tone: "critical" | "warning" | "info" | "neutral"; title: string; sub: string; onClick?: () => void };
+
 export default function Home() {
   const { state, set } = useStore();
   const { openPayments } = useUi();
@@ -30,27 +51,55 @@ export default function Home() {
   const [open, setOpen] = useState<Transaction | null>(null);
   const [envOpen, setEnvOpen] = useState<string | null>(null);
   const [group, setGroup] = useState<"spend" | "save">("spend");
-  const review = state.transactions.filter((x) => x.status !== "declined" && !x.confirmed);
-  const recurring = detectRecurring(state.transactions, state.envelopes).filter((r) => !r.inSubscriptions && !state.dismissedSubscriptions.includes(r.merchant.toLowerCase()));
+  const [chart, setChart] = useState<"day" | "category">("day");
+  const first = state.user?.name.split(" ")[0];
+  const envs = state.envelopes.filter((e) => (group === "spend" ? e.cardSpendable : !e.cardSpendable));
+  const next = upcoming(state, 4);
+
+  const alerts: Alert[] = [];
   const today = state.now.slice(0, 10);
   const decline = state.transactions.find((x) => x.status === "declined" && x.decline?.code === "insufficient" && !x.decline.coveredBy && x.createdAt.slice(0, 10) === today);
-  const lowEnvs = state.envelopes.filter((e) => e.cardSpendable && e.warned80 && !e.warned100);
-  const envs = state.envelopes.filter((e) => (group === "spend" ? e.cardSpendable : !e.cardSpendable));
-  const first = state.user?.name.split(" ")[0];
+  if (state.envelopes.length === 0) alerts.push({ key: "setup", tone: "critical", title: "No categories yet", sub: "The card declines everything until you set them up", onClick: () => set({ view: "budget" }) });
+  if (decline) alerts.push({ key: "decline", tone: "critical", title: `Declined at ${decline.merchant}`, sub: `Short by ${fmt(decline.decline?.shortBy ?? 0)}. Tap to cover it.`, onClick: () => setOpen(decline) });
+  if (state.unassigned > 0) alerts.push({ key: "unassigned", tone: "warning", title: `${fmt(state.unassigned)} has no job`, sub: "Put it in categories so the card can use it", onClick: () => set({ view: "budget" }) });
+  const low = state.envelopes.filter((e) => e.cardSpendable && e.warned80 && !e.warned100);
+  if (low.length) alerts.push({ key: "low", tone: "warning", title: `Running low: ${low.map((e) => e.name).join(", ")}`, sub: "Past the warning line for this period", onClick: () => set({ view: "budget" }) });
+  const review = state.transactions.filter((x) => x.status !== "declined" && !x.confirmed).length;
+  if (review) alerts.push({ key: "review", tone: "info", title: `${review} purchase${review > 1 ? "s" : ""} to check`, sub: "Vague merchant codes, confirm the category", onClick: () => set({ view: "activity" }) });
+  const recurring = detectRecurring(state.transactions, state.envelopes).filter((r) => !r.inSubscriptions && !state.dismissedSubscriptions.includes(r.merchant.toLowerCase()));
+  if (recurring.length) alerts.push({ key: "subs", tone: "neutral", title: `Subscription spotted: ${recurring.map((r) => r.merchant).join(", ")}`, sub: "Not coming out of Subscriptions", onClick: () => set({ view: "activity" }) });
+
+  const toneIcon = { critical: <CircleX size={15} />, warning: <TriangleAlert size={15} />, info: <Info size={15} />, neutral: <Repeat size={15} /> };
 
   return (
-    <div className="stack" style={{ gap: 18 }}>
-      <section className="hero">
+    <div className="stack" style={{ gap: 16 }}>
+      <section className="hero hero-split">
         <svg className="hero-watermark" width="260" height="260" viewBox="0 0 32 32" fill="none" aria-hidden="true">
           <path d="M4 26 C8 18 13 8 22 4 C18 12 20 22 27 26 Z" stroke="#fff" strokeWidth={1.2} strokeLinejoin="round" />
         </svg>
-        <div className="hero-label">
-          <FinMark size={15} color="rgba(242,251,246,0.85)" /> {first ? `${first}'s Fin account` : "Fin account"}
+        <div className="hero-main">
+          <div className="hero-label">
+            <FinMark size={15} color="rgba(242,251,246,0.85)" /> {first ? `${first}'s Fin account` : "Fin account"}
+          </div>
+          <div className="hero-amount">
+            <Money c={t.cash} />
+          </div>
+          <div className="hero-actions">
+            <button className="hero-btn primary" onClick={() => openPayments("card")}>
+              <Zap size={15} /> Test a payment
+            </button>
+            <button className="hero-btn" onClick={() => set({ view: "budget" })}>
+              <Layers size={15} /> Assign
+            </button>
+            <button className="hero-btn" onClick={() => openPayments("deposit")}>
+              <ArrowDownLeft size={15} /> Add money
+            </button>
+            <button className="hero-btn" onClick={() => openPayments("cash")}>
+              <Banknote size={15} /> Log cash
+            </button>
+          </div>
         </div>
-        <div className="hero-amount">
-          <Money c={t.cash} />
-        </div>
-        <div className="hero-stats">
+        <div className="hero-stats two">
           <div className="hero-stat">
             <div className="label">
               <CreditCard size={13} /> Card can spend
@@ -78,113 +127,92 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="quick-actions">
-        <button className="quick" onClick={() => openPayments("card")}>
-          <span className="quick-icon">
-            <Zap size={17} />
-          </span>
-          <span>
-            <div className="quick-title">Test a payment</div>
-            <div className="quick-sub">Swipe the card, see what happens</div>
-          </span>
-        </button>
-        <button className="quick" onClick={() => set({ view: "budget" })}>
-          <span className="quick-icon">
-            <Layers size={17} />
-          </span>
-          <span>
-            <div className="quick-title">Assign money</div>
-            <div className="quick-sub">{state.unassigned > 0 ? `${fmt(state.unassigned)} waiting` : "All assigned"}</div>
-          </span>
-        </button>
-        <button className="quick" onClick={() => openPayments("deposit")}>
-          <span className="quick-icon">
-            <ArrowDownLeft size={17} />
-          </span>
-          <span>
-            <div className="quick-title">Add money</div>
-            <div className="quick-sub">From {state.bank?.institution ?? "your bank"}</div>
-          </span>
-        </button>
-        <button className="quick" onClick={() => openPayments("cash")}>
-          <span className="quick-icon">
-            <Banknote size={17} />
-          </span>
-          <span>
-            <div className="quick-title">Log cash</div>
-            <div className="quick-sub">Keep the budget honest</div>
-          </span>
-        </button>
-      </div>
-
-      {(decline || review.length > 0 || recurring.length > 0 || state.unassigned > 0 || lowEnvs.length > 0) && (
-        <div>
-          {decline && (
-            <Callout status="critical" title={`Declined at ${decline.merchant}`} onClick={() => setOpen(decline)} action={<ChevronRight size={18} className="faint" />}>
-              {decline.decline?.message} Tap to cover it from your emergency fund.
-            </Callout>
-          )}
-          {state.unassigned > 0 && (
-            <Callout status="warning" title={`${fmt(state.unassigned)} has no job yet`} onClick={() => set({ view: "budget" })} action={<ChevronRight size={18} className="faint" />}>
-              The card can't spend Unassigned money. Put it in envelopes first.
-            </Callout>
-          )}
-          {lowEnvs.length > 0 && (
-            <Callout status="warning" title={`Running low: ${lowEnvs.map((e) => e.name).join(", ")}`}>
-              Over 80% used for this period.
-            </Callout>
-          )}
-          {review.length > 0 && (
-            <Callout status="info" title={`${review.length} purchase${review.length > 1 ? "s" : ""} to check`} onClick={() => set({ view: "activity" })} action={<ChevronRight size={18} className="faint" />}>
-              Their merchant codes could mean more than one thing. Confirm or move them.
-            </Callout>
-          )}
-          {recurring.length > 0 && (
-            <Callout status="neutral" title={`Looks like a subscription: ${recurring.map((r) => r.merchant).join(", ")}`} onClick={() => set({ view: "activity" })} action={<Repeat size={16} className="faint" />}>
-              Same amount every month, but not coming out of Subscriptions.
-            </Callout>
-          )}
-        </div>
-      )}
-
       <div className="page-grid">
         <div>
           <div className="card">
             <div className="card-head">
               <h2>
-                <Wallet size={17} /> Envelopes
+                <Wallet size={17} /> Categories
               </h2>
-              <Segmented
-                label="Envelope group"
-                value={group}
-                onChange={setGroup}
-                options={[
-                  { value: "spend", label: "Spending" },
-                  { value: "save", label: "Saving and bills" },
-                ]}
-              />
+              {state.envelopes.length > 0 && (
+                <Segmented
+                  label="Category group"
+                  value={group}
+                  onChange={setGroup}
+                  options={[
+                    { value: "spend", label: "Spending" },
+                    { value: "save", label: "Saving and bills" },
+                  ]}
+                />
+              )}
             </div>
-            <div className="env-grid">
-              {envs.map((e) => (
-                <EnvelopeCard key={e.id} e={e} onClick={() => setEnvOpen(e.id)} />
-              ))}
-            </div>
-            {envs.length === 0 && <Empty icon={<Wallet size={20} />} title="No envelopes here" />}
+            {state.envelopes.length === 0 ? (
+              <Empty icon={<Sparkles size={20} />} title="No categories yet">
+                <button className="btn btn-primary btn-sm top-gap" onClick={() => set({ view: "budget" })}>
+                  Set up categories
+                </button>
+              </Empty>
+            ) : (
+              <div className="env-grid compact">
+                {envs.map((e) => (
+                  <EnvelopeCard key={e.id} e={e} onClick={() => setEnvOpen(e.id)} />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="card">
             <div className="card-head">
               <h2>
-                <ChartColumn size={17} /> Daily spending
+                <ChartColumn size={17} /> Spending
               </h2>
+              <Segmented
+                label="Chart"
+                value={chart}
+                onChange={setChart}
+                options={[
+                  { value: "day", label: "By day" },
+                  { value: "category", label: "By category" },
+                ]}
+              />
             </div>
-            <DailySpendChart state={state} />
+            {chart === "day" ? <DailySpendChart state={state} /> : <EnvelopeBreakdown state={state} limit={8} />}
           </div>
         </div>
 
         <div>
           <div className="card flush">
-            <div className="card-head" style={{ padding: "10px 16px 0" }}>
+            <div className="card-head" style={{ padding: "10px 16px 4px", margin: 0 }}>
+              <h2>
+                <ListChecks size={17} /> Needs attention
+              </h2>
+              {alerts.length > 0 && <span className="pill">{alerts.length}</span>}
+            </div>
+            {alerts.length === 0 && (
+              <div className="alert-row" style={{ cursor: "default" }}>
+                <span className="notice-icon s-good">
+                  <CircleCheck size={15} />
+                </span>
+                <span className="alert-text">
+                  <strong>All clear</strong>
+                  <span>Nothing needs you right now</span>
+                </span>
+              </div>
+            )}
+            {alerts.map((a) => (
+              <button key={a.key} className="alert-row" onClick={a.onClick}>
+                <span className={`notice-icon s-${a.tone}`}>{toneIcon[a.tone]}</span>
+                <span className="alert-text">
+                  <strong>{a.title}</strong>
+                  <span>{a.sub}</span>
+                </span>
+                <ChevronRight size={16} className="faint" />
+              </button>
+            ))}
+          </div>
+
+          <div className="card flush">
+            <div className="card-head" style={{ padding: "10px 16px 0", margin: 0 }}>
               <h2>Recent activity</h2>
               <button className="link-btn small" onClick={() => set({ view: "activity" })}>
                 See all <ChevronRight size={14} />
@@ -196,19 +224,32 @@ export default function Home() {
                   Open Test payments and swipe the card.
                 </Empty>
               )}
-              {state.transactions.slice(0, 7).map((x) => (
+              {state.transactions.slice(0, 5).map((x) => (
                 <TxRow key={x.id} tx={x} onClick={() => setOpen(x)} />
               ))}
             </div>
           </div>
 
-          <div className="card">
-            <div className="card-head">
-              <h2>Where it went</h2>
-              <span className="xs muted">This period</span>
+          {next.length > 0 && (
+            <div className="card flush">
+              <div className="card-head" style={{ padding: "10px 16px 4px", margin: 0 }}>
+                <h2>Coming up</h2>
+                <button className="link-btn small" onClick={() => openPayments("time")}>
+                  Move time <ChevronRight size={14} />
+                </button>
+              </div>
+              {next.map((n) => (
+                <div key={n.key} className="alert-row" style={{ cursor: "default" }}>
+                  {n.icon}
+                  <span className="alert-text">
+                    <strong>{n.title}</strong>
+                    <span>{fmtDate(n.at)}</span>
+                  </span>
+                  {n.amount && <span className="small num">{n.amount}</span>}
+                </div>
+              ))}
             </div>
-            <EnvelopeBreakdown state={state} />
-          </div>
+          )}
         </div>
       </div>
 

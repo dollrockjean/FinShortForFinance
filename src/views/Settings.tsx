@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { BadgeCheck, Building2, Database, KeyRound, Mail, Monitor, Moon, Palette, RotateCcw, ShieldCheck, Smartphone, Sun, Trash2, UserRound } from "lucide-react";
+import { Layers, BadgeCheck, Building2, Database, KeyRound, Mail, Monitor, Moon, Palette, RotateCcw, ShieldCheck, Smartphone, Sun, Trash2, UserRound } from "lucide-react";
 import { useStore } from "../store";
 import { freshState, demoState } from "../engine/seed";
 import { Callout, Segmented, StatusPill } from "../components/ui";
 import { initials } from "../components/options";
+import { ResetModal } from "./Setup";
+import { fmt, sum } from "../engine/util";
 
 function Row({ icon, title, sub, right }: { icon: React.ReactNode; title: string; sub?: React.ReactNode; right?: React.ReactNode }) {
   return (
@@ -21,6 +23,7 @@ function Row({ icon, title, sub, right }: { icon: React.ReactNode; title: string
 export default function Settings() {
   const { state, set } = useStore();
   const [confirm, setConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const sec = state.security;
 
   return (
@@ -85,13 +88,28 @@ export default function Settings() {
             full
             label="Theme"
             value={state.theme}
-            onChange={(theme) => set({ theme })}
+            onChange={(theme) => set({ theme, themeSet: true })}
             options={[
-              { value: "system", label: "Auto", icon: <Monitor size={14} /> },
               { value: "light", label: "Light", icon: <Sun size={14} /> },
+              { value: "system", label: "Match device", icon: <Monitor size={14} /> },
               { value: "dark", label: "Dark", icon: <Moon size={14} /> },
             ]}
           />
+        </div>
+
+        <div className="card">
+          <div className="card-head">
+            <h2>
+              <Layers size={17} /> Categories
+            </h2>
+          </div>
+          <p className="small muted">
+            {state.envelopes.length} categories holding {fmt(sum(state.envelopes.map((e) => e.balance)))}. Resetting empties them all and sends the money to Unassigned, then you pick a profile or
+            build your own.
+          </p>
+          <button className="btn btn-danger-outline btn-block" disabled={state.envelopes.length === 0} onClick={() => setResetting(true)}>
+            <RotateCcw size={15} /> Reset all categories
+          </button>
         </div>
 
         <div className="card">
@@ -103,7 +121,7 @@ export default function Settings() {
           <p className="small muted">Everything lives in this browser's local storage. Nothing is sent to a server, because there isn't one.</p>
           {!confirm ? (
             <div className="grid-2">
-              <button className="btn btn-outline" onClick={() => set(demoState())}>
+              <button className="btn btn-outline" onClick={() => set({ ...demoState(), theme: state.theme, themeSet: state.themeSet })}>
                 <RotateCcw size={15} /> Reload demo
               </button>
               <button className="btn btn-danger-outline" onClick={() => setConfirm(true)}>
@@ -125,6 +143,7 @@ export default function Settings() {
           )}
         </div>
       </div>
+      {resetting && <ResetModal onClose={() => setResetting(false)} />}
     </div>
   );
 }

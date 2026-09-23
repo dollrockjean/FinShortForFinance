@@ -5,7 +5,7 @@ import { Transaction } from "../types";
 import { available, coverAndRetry, emergencyEnvelope } from "../engine/ledger";
 import { fmt } from "../engine/util";
 import { Callout, ErrorText, Field, Modal, useToast } from "./ui";
-import { KindBadge } from "./meta";
+import { KindBadge, EnvBadge } from "./meta";
 
 // The override path. A decline for lack of funds offers exactly one way through:
 // move the shortfall from the emergency fund, say why, and retry.
@@ -37,13 +37,13 @@ export function DeclineModal({ tx, onClose }: { tx: Transaction; onClose: () => 
           <div className="preview-box" style={{ marginBottom: 14 }}>
             <div className="preview-line">
               <span className="row gap" style={{ gap: 8 }}>
-                <KindBadge kind={env.kind} size={22} /> {env.name}
+                <EnvBadge e={env} size={22} /> {env.name}
               </span>
               <span className="num">{fmt(Math.max(0, available(env)))} left</span>
             </div>
             <div className="preview-line">
               <span className="row gap" style={{ gap: 8 }}>
-                <KindBadge kind={emergency.kind} size={22} /> {emergency.name}
+                <EnvBadge e={emergency} size={22} /> {emergency.name}
               </span>
               <span className="num">{fmt(available(emergency))} left</span>
             </div>

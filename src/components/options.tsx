@@ -3,7 +3,7 @@ import { AppState, Envelope } from "../types";
 import { available } from "../engine/ledger";
 import { MCC, MERCHANTS } from "../engine/catalog";
 import { fmt } from "../engine/util";
-import { GROUP_LABEL, KIND_META, KindBadge, MerchantAvatar } from "./meta";
+import { GROUP_LABEL, KIND_META, KindBadge, MerchantAvatar, EnvBadge } from "./meta";
 import { Option } from "./ui";
 
 const GROUP_ORDER = { needs: 0, wants: 1, saving: 2 };
@@ -16,7 +16,7 @@ export function envelopeOptions(envs: Envelope[], opts: { showBalance?: boolean;
   return sortByGroup(envs).map((e) => ({
     value: e.id,
     label: e.name,
-    icon: <KindBadge kind={e.kind} size={30} />,
+    icon: <EnvBadge e={e} size={30} />,
     meta: opts.showBalance === false ? undefined : fmt(available(e)),
     group: opts.grouped === false ? undefined : GROUP_LABEL[KIND_META[e.kind].group],
     description: e.cardSpendable ? undefined : "Not spendable by card",

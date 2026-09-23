@@ -23,7 +23,7 @@ import { advanceDays } from "../engine/clock";
 import { applyPlan, authorize, available, coverAndRetry, emergencyEnvelope, manualExpense, planFill, settle, transferIn } from "../engine/ledger";
 import { addMonths, fmt, fmtDate, sum, uid } from "../engine/util";
 import { Callout, Drawer, Dropdown, ErrorText, Field, MoneyInput, Option, Segmented, StatusPill, Toggle, useToast } from "../components/ui";
-import { KindBadge, MerchantAvatar } from "../components/meta";
+import { KindBadge, MerchantAvatar, EnvBadge } from "../components/meta";
 import { envelopeOptions, mccOptions, merchantOptions } from "../components/options";
 
 export type PanelTab = "card" | "cash" | "deposit" | "time";
@@ -82,7 +82,7 @@ const SCENARIOS: Scenario[] = [
   { id: "vague", label: "Big-box store", description: "Vague merchant code, needs a check after", build: () => ({ merchant: "Target", amount: 11860 }) },
   { id: "sub", label: "Subscription renewal", description: "Recurring, same amount monthly", build: () => ({ merchant: "Netflix", amount: 1549 }) },
   { id: "hotel", label: "Hotel check-in", description: "Holds $400 until checkout", build: () => ({ merchant: "Marriott", amount: 21840 }) },
-  { id: "casino", label: "Blocked merchant", description: "Gambling is blocked before any envelope", build: () => ({ merchant: "Lucky Star Casino", amount: 6000 }) },
+  { id: "casino", label: "Blocked merchant", description: "Gambling is blocked before any category", build: () => ({ merchant: "Lucky Star Casino", amount: 6000 }) },
 ];
 
 function predict(state: AppState, req: Parameters<typeof authorize>[1]) {
@@ -146,7 +146,7 @@ function CardTest() {
   const scenarioOptions: Option<string>[] = SCENARIOS.map((s) => ({ value: s.id, label: s.label, description: s.description, icon: <Wand2 size={16} className="faint" /> }));
   const chargeOptions: Option<string>[] = [
     { value: "auto", label: "Automatic", description: "Fin picks by merchant code and your corrections", icon: <Sparkles size={16} className="faint" />, group: "Let Fin decide" },
-    ...envelopeOptions(state.envelopes).map((o) => ({ ...o, group: `Force an envelope · ${o.group}` })),
+    ...envelopeOptions(state.envelopes).map((o) => ({ ...o, group: `Force a category · ${o.group}` })),
   ];
 
   return (
@@ -202,11 +202,11 @@ function CardTest() {
             </span>
           </div>
           <div className="preview-line">
-            <span>Envelope</span>
+            <span>Category</span>
             <span className="row gap" style={{ gap: 6 }}>
               {target ? (
                 <>
-                  <KindBadge kind={target.kind} size={20} /> {target.name}
+                  <EnvBadge e={target} size={20} /> {target.name}
                 </>
               ) : (
                 "None matches"
@@ -280,10 +280,11 @@ function Receipt({ result, onRetry }: { result: { tx: Transaction; before?: Cent
     { ok: null, text: `Card network sends an authorization request: ${tx.merchant}, MCC ${tx.mcc ?? "?"}, ${fmt(tx.holdAmount ?? tx.amount)}` },
     { ok: tx.decline?.code !== "frozen", text: state.card?.status === "frozen" ? "Card is frozen" : "Card is active" },
     { ok: tx.decline?.code !== "blocked_mcc", text: tx.decline?.code === "blocked_mcc" ? "Merchant category is blocked" : "Merchant category allowed" },
-    { ok: tx.decline?.code !== "no_envelope" && tx.decline?.code !== "not_spendable", text: env ? `Matched to ${env.name}` : "No envelope matched" },
+    { ok: tx.decline?.code !== "no_envelope" && tx.decline?.code !== "not_spendable", text: env ? `Matched to ${env.name}` : "No category matched" },
   ];
+  if (tx.decline?.code === "over_limit") steps.push({ ok: false, text: tx.decline.message });
   if (!tx.decline || tx.decline.code === "insufficient") {
-    steps.push({ ok, text: ok ? `Envelope had enough (${fmt(result.before ?? 0)} available)` : `Envelope short by ${fmt(tx.decline?.shortBy ?? 0)}` });
+    steps.push({ ok, text: ok ? `Category had enough (${fmt(result.before ?? 0)} available)` : `Category short by ${fmt(tx.decline?.shortBy ?? 0)}` });
   }
   const failAt = steps.findIndex((s) => s.ok === false);
 
@@ -333,7 +334,7 @@ function Receipt({ result, onRetry }: { result: { tx: Transaction; before?: Cent
                 </span>
               </div>
             )}
-            {!tx.confirmed && <div className="small muted">The merchant code is vague. Fin will ask you to check the envelope in Activity.</div>}
+            {!tx.confirmed && <div className="small muted">The merchant code is vague. Fin will ask you to check the category in Activity.</div>}
           </div>
         )}
         {!ok && (
@@ -384,12 +385,12 @@ function CashTest() {
   return (
     <div className="card" style={{ padding: 16 }}>
       <Callout status="neutral">
-        The card never sees cash. Logging it takes the money out of the envelope like a swipe would, and sends the same amount back to your bank since that's where the cash came from.
+        The card never sees cash. Logging it takes the money out of the category like a swipe would, and sends the same amount back to your bank since that's where the cash came from.
       </Callout>
       <Field label="Where">
         <input value={merchant} onChange={(e) => setMerchant(e.target.value)} />
       </Field>
-      <Field label="Envelope">
+      <Field label="Category">
         <Dropdown value={envelopeId} onChange={setEnvelopeId} options={envelopeOptions(spendable)} />
       </Field>
       <Field label="Amount">
@@ -477,13 +478,13 @@ function DepositTest() {
               className="btn btn-outline btn-block"
               onClick={() => {
                 act((s) => applyPlan(s, planFill(s)));
-                toast({ status: "good", title: `Assigned ${fmt(planTotal)}`, body: `${plan.length} envelopes filled by priority` });
+                toast({ status: "good", title: `Assigned ${fmt(planTotal)}`, body: `${plan.length} categories filled by priority` });
               }}
             >
-              Fill {plan.length} envelopes by priority ({fmt(planTotal)})
+              Fill {plan.length} categories by priority ({fmt(planTotal)})
             </button>
           ) : (
-            <p className="small muted">Every envelope is already at its target. Use the Budget page to put the rest somewhere.</p>
+            <p className="small muted">Every category is already at its target. Use the Budget page to put the rest somewhere.</p>
           )}
         </div>
       )}
@@ -562,7 +563,7 @@ function TimeTest() {
         ))}
         <div className="log-row">
           <RotateCcw size={16} className="faint" />
-          <span style={{ flex: 1 }}>Monthly envelopes reset {fmtDate(monthEnd)}</span>
+          <span style={{ flex: 1 }}>Monthly categories reset {fmtDate(monthEnd)}</span>
         </div>
       </div>
     </div>

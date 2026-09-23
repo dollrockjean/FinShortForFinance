@@ -93,7 +93,7 @@ export default function CardView() {
           <div className="stat">
             <div className="label">Card can spend</div>
             <div className="value">{fmt(sum(spendable.map(available)))}</div>
-            <div className="sub">Across {spendable.length} envelopes</div>
+            <div className="sub">Across {spendable.length} categories</div>
           </div>
           <div className="stat">
             <div className="label">Spent this month</div>
@@ -103,7 +103,7 @@ export default function CardView() {
           <div className="stat">
             <div className="label">Declined this month</div>
             <div className="value">{declinedMonth}</div>
-            <div className="sub">Stopped by an envelope</div>
+            <div className="sub">Stopped by a category</div>
           </div>
         </div>
       </div>
@@ -115,7 +115,7 @@ export default function CardView() {
               <Sparkles size={17} /> Next purchase
             </h2>
           </div>
-          <Field label="Comes out of" hint="Automatic picks by merchant code and what you've taught Fin. At a store that sells everything, pick an envelope before you pay.">
+          <Field label="Comes out of" hint="Automatic picks by merchant code and what you've taught Fin. At a store that sells everything, pick a category before you pay.">
             <Dropdown
               value={state.nextPurchaseEnvelopeId ?? "auto"}
               onChange={(v) => set({ nextPurchaseEnvelopeId: v === "auto" ? null : v })}
@@ -147,7 +147,7 @@ export default function CardView() {
               </span>
               <div>
                 <strong className="small">Block gambling</strong>
-                <div className="xs muted">Merchant code 7995, checked before any envelope</div>
+                <div className="xs muted">Merchant code 7995, checked before any category</div>
               </div>
               <Toggle checked={card.blockGambling} onChange={(v) => set({ card: { ...card, blockGambling: v } })} label="Block gambling" srOnly />
             </div>
@@ -156,7 +156,7 @@ export default function CardView() {
                 <Lock size={17} />
               </span>
               <div>
-                <strong className="small">Envelope enforcement</strong>
+                <strong className="small">Category enforcement</strong>
                 <div className="xs muted">Always on. It's the whole point.</div>
               </div>
               <StatusPill status="good">On</StatusPill>

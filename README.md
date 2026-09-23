@@ -24,18 +24,27 @@ Open the Test payments panel from the top bar ("Test a payment"), the sidebar, t
 - Deposit: a paycheck or plain transfer, landing now or in 2 days, plus one-tap fill by priority.
 - Time: move the demo clock and see what's coming up (holds settling, transfers landing, subscriptions renewing, period resets).
 
+## Categories and customization
+
+Budget categories hold the money (the method is envelope budgeting; the app calls them categories). Everything about them is editable:
+
+- Reset all categories from the Budget page's "..." menu or from Settings. Every category is deleted, the money in them goes back to Unassigned, and pending holds can settle first. History stays.
+- With no categories, Budget shows a setup screen with two paths. "Use a profile" asks for pay schedule and take-home (or an irregular-income average), household size, debt and goal, then builds a plan from one of seven profiles: starter and debt focused, balanced, percent of income, lean, high saver, family, or custom. "Build my own" starts blank with quick-add chips for common categories plus anything you name yourself. Both show every row as editable (type, name, limit, weekly or monthly) with a running total against income before anything is created.
+- Each category can have its own icon (50 to pick from), its own color, a per-purchase limit (the card declines any single purchase above it), its own warning threshold (50% to 95%), rollover on or off, card spending on or off, percent-of-income targets, and a note.
+- The emergency fund is part of every setup, since declined purchases get covered from it.
+
 ## Design
 
-White base with a light green accent (#4CAF7D), a darker green gradient for the balance card, and a near-black dark theme. Each envelope type has its own icon and color from a colorblind-checked palette, always shown next to its name. Status colors (green, amber, red, blue) are reserved for on track, running low, declined or empty, and needs a check, and always come with an icon and a label. Icons are from Lucide. Dropdowns are custom listboxes with icons, descriptions, grouping, search and keyboard support.
+White base by default (dark mode is an option in Settings) with a light green accent (#4CAF7D), a darker green gradient for the balance card, and a near-black dark theme. Each category type has its own icon and color from a colorblind-checked palette, always shown next to its name. Status colors (green, amber, red, blue) are reserved for on track, running low, declined or empty, and needs a check, and always come with an icon and a label. Icons are from Lucide. Dropdowns are custom listboxes with icons, descriptions, grouping, search and keyboard support.
 
 ## What works
 
 - Onboarding: email or Google/Apple sign-in (simulated), email code, two-factor, identity check, income questionnaire, preset, envelope review, Plaid-style bank link, first ACH transfer, first assignment, virtual card, optional physical card.
 - Two-factor is real RFC 6238 TOTP. Scan the QR with any authenticator app and its codes will work. SMS is offered as the fallback, with the SIM-swap warning.
 - Zero-based budgeting: new money lands in Unassigned, and the card can't touch it until you assign it. "Assign by priority" fills envelopes in fill order, which is also how irregular-income mode handles each paycheck.
-- Presets: starter/debt-focused, balanced (about 50/30/20), percent of income (targets recalculate when income changes), and custom. All of them include the emergency fund, which can't be deleted.
+- Profiles: starter/debt-focused, balanced (about 50/30/20), percent of income (targets recalculate when income changes), lean, high saver, family, and custom. All of them include the emergency fund.
 - Weekly or monthly cadence per envelope. Rollover can be set per envelope. By default, spending envelopes send leftovers back to Unassigned at the end of the period, and savings-type envelopes keep theirs.
-- Card authorization in `authorize()`: frozen card, blocked merchant codes (gambling), no matching envelope, savings envelope, insufficient funds. Each decline says which envelope was short and by how much.
+- Card authorization in `authorize()`: frozen card, blocked merchant codes (gambling), no matching category, savings category, over the category's per-purchase limit, insufficient funds. Each decline says which envelope was short and by how much.
 - Pending holds (gas, hotels) are shown apart from spending and settle to the real amount.
 - Override: cover a shortfall from the emergency fund with a note, then retry. Every override lands in Activity under Overrides.
 - Categorization: merchant code first, then your corrections. Two corrections for the same merchant make that envelope the default. Transactions can be split across any number of envelopes. Vague merchant codes (Walmart, Target, Amazon) get flagged for a check.

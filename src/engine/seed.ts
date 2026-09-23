@@ -12,7 +12,7 @@ export function todayNoon(): string {
 export function freshState(now = todayNoon()): AppState {
   return {
     version: 2,
-    theme: "system",
+    theme: "light",
     now,
     testMode: false,
     step: "landing",
